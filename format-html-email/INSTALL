@@ -1,0 +1,6 @@
+Install Quicklisp (http://www.quicklisp.org)
+
+Make sure that this source directory has been added as an ASDF project,
+for example by adding the directory to ASDF:*CENTRAL-REGISTRY*.
+
+Then, simply run the script make-binary.sh to generate the binary.
