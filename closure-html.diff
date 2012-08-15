@@ -1,0 +1,12 @@
+--- src/parse/sgml-parse.lisp.old	2012-08-15 11:45:48.343889340 +0800
++++ src/parse/sgml-parse.lisp	2012-08-15 11:46:05.811680608 +0800
+@@ -182,7 +182,8 @@
+   (or (name-start-rune-p char)
+       (digit-rune-p char) 
+       (rune= char #/.) 
+-      (rune= char #/-)))
++      (rune= char #/-)
++      (rune= char #/:)))
+ 
+ (definline sloopy-name-rune-p (char)
+   (or (name-rune-p char)
