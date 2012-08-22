@@ -1,5 +1,8 @@
 ;;; -*- lexical-binding: t -*-
 
+;;; cl is needed everywhere
+(require 'cl)
+
 ;;;
 ;;; Muse for gnus
 ;;;
@@ -79,8 +82,10 @@ extracted attachment specifications."
 generate the resulting HTML. This function returns a list of two elements:
 the new email content as a string, and a list of attachments to be added
 to the end of the mail."
-  (let ((id gnus-message-group-art)
-        (processed-results (remove-and-get-inline-mail-content new-content)))
+  (let ((processed-results (remove-and-get-inline-mail-content new-content))
+        (generate-quoted-html-local-yank local-yank))
+    (unless generate-quoted-html-local-yank
+      (error "local-yank is nil"))
     (with-temp-files ((new-message "email-new")
                       (old-message "email-old"))
       (with-temp-buffer
@@ -88,7 +93,9 @@ to the end of the mail."
         (muse-publish-markup-buffer nil "html")
         (write-file new-message))
       (with-temp-buffer
-        (gnus-request-article (cdr id) (car id) (current-buffer))
+        (gnus-request-article (car generate-quoted-html-local-yank)
+                              (cadr generate-quoted-html-local-yank)
+                              (current-buffer))
         (write-file old-message))
       (with-temp-buffer
         (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
@@ -157,8 +164,7 @@ to the end of the mail."
 
           ;; If there are files to be deleted, add them to the buffer-local list
           (when files-to-delete
-            (make-local-variable 'local-temporary-files)
-            (setq local-temporary-files files-to-delete)))))))
+            (set (make-local-variable 'local-temporary-files) files-to-delete)))))))
           
 (defun mail-insert-divider ()
   (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
@@ -172,6 +178,16 @@ to the end of the mail."
                            t)))))
       (message-goto-body)
       (insert email-muse-format-marker "\n")
+
+      (let ((id gnus-message-group-art)
+            (message (let ((v (car yank)))
+                       (etypecase v
+                         (number v)
+                         (list (car v))))))
+        (unless (or id message)
+          (insert "FAILED TO FIND YANK: %s" yank))
+        (set (make-local-variable 'local-yank) (list message (car id))))
+
       (unless replyp
         (message-goto-to)))))
 
