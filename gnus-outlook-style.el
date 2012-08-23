@@ -183,16 +183,15 @@ to the end of the mail."
       (message-goto-body)
       (insert email-muse-format-marker "\n")
 
-      (let ((id gnus-message-group-art)
-            (message (let ((v (car yank)))
-                       (etypecase v
-                         (number v)
-                         (list (car v))))))
-        (unless (or id message)
-          (error (format ("failed to find yank: %s" yank))))
-        (set (make-local-variable 'local-yank) (list message (car id))))
-
-      (unless replyp
+      (if replyp
+          (let ((id gnus-message-group-art)
+                (message (let ((v (car yank)))
+                           (etypecase v
+                             (number v)
+                             (list (car v))))))
+            (unless (or id message)
+              (error (format ("failed to find yank: %s" yank))))
+            (set (make-local-variable 'local-yank) (list message (car id))))
         (message-goto-to)))))
 
 (defun cleanup-temporary-attachments ()
