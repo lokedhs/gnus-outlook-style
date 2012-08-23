@@ -9,6 +9,9 @@
 (require 'muse-publish)
 (require 'muse-html)
 
+(defcustom outlook-format-program "format_quoted_mail"
+  "The program used to merge the HTML content.")
+
 (defvar mail-message-divider "======== END OF MESSAGE ========")
 (defvar email-muse-format-marker "====== Muse format marker ======")
 
@@ -99,7 +102,8 @@ to the end of the mail."
         (write-file old-message))
       (with-temp-buffer
         (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
-          (unless (zerop (shell-command (format "format_quoted_mail \"%s\" \"%s\" /tmp"
+          (unless (zerop (shell-command (format "%s \"%s\" \"%s\" /tmp"
+                                                outlook-format-program
                                                 new-message old-message)
                                         (current-buffer) error-buffer))
             (switch-to-buffer error-buffer)
@@ -185,7 +189,7 @@ to the end of the mail."
                          (number v)
                          (list (car v))))))
         (unless (or id message)
-          (insert "FAILED TO FIND YANK: %s" yank))
+          (error (format ("failed to find yank: %s" yank))))
         (set (make-local-variable 'local-yank) (list message (car id))))
 
       (unless replyp
