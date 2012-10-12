@@ -66,12 +66,12 @@ extracted attachment specifications."
           finally (return (list (buffer-string) attachments)))))
 
 (defun get-next-pair ()
-  (cl-flet ((line-content ()
-                          (when (looking-at "==END==")
-                            (error "Illegal attachment format"))
-                          (let ((s (remove-trailing-newline (thing-at-point 'line))))
-                            (forward-line)
-                            s)))
+  (flet ((line-content ()
+                       (when (looking-at "==END==")
+                         (error "Illegal attachment format"))
+                       (let ((s (remove-trailing-newline (thing-at-point 'line))))
+                         (forward-line)
+                         s)))
 
     (let* ((id (line-content))
            (type (line-content))
