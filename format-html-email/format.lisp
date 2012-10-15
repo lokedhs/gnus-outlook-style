@@ -1,5 +1,7 @@
 (in-package :format-html-email)
 
+(declaim (optimize (speed 0) (safety 3) (debug 3)))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *html-namespace* "http://www.w3.org/1999/xhtml")
   (defparameter *html-namespaces* (list (list "h" *html-namespace*))))
