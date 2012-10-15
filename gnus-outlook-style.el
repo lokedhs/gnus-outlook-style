@@ -108,7 +108,7 @@ to the end of the mail."
                                         (current-buffer) error-buffer))
             (switch-to-buffer error-buffer)
             (error "Formatting of email failed")))
-        
+
         (goto-char (point-min))
         (let ((images (loop while (not (looking-at "==END=="))
                             collect (get-next-pair))))
