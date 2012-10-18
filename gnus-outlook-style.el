@@ -80,6 +80,32 @@ extracted attachment specifications."
                     type id id file id)
             file))))
 
+(defun publish-and-update-tags ()
+  (let ((content (buffer-string))
+        new-content)
+    (with-temp-buffer
+      (insert content)
+      (muse-publish-markup-buffer nil "html")
+      (setq new-content (substring-no-properties (buffer-string))))
+    (delete-region (point-min) (point-max))
+    (insert new-content)
+
+    (let ((case-fold-search nil))
+      (goto-char (point-min))
+      (while (re-search-forward "<pre class=\"src\">" nil t)
+        (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\""
+                               "border: 1pt solid #b0b0b0;"
+                               "background-color: #fbfbfb;"
+                               "padding: 5pt;"
+                               "font-family: monospace;"
+                               "font-size: 90%;"
+                               "overflow: auto;"
+                               "\">"))
+        (when (looking-at "\n")
+          (delete-char 1))
+        (re-search-forward "</pre>")
+        (insert "</div>")))))
+
 (defun generate-quoted-html (new-content)
   "Given the new email's content, combine it with the old email thread and
 generate the resulting HTML. This function returns a list of two elements:
@@ -93,7 +119,7 @@ to the end of the mail."
                       (old-message "email-old"))
       (with-temp-buffer
         (insert (car processed-results))
-        (muse-publish-markup-buffer nil "html")
+        (publish-and-update-tags)
         (write-file new-message))
       (with-temp-buffer
         (gnus-request-article (car generate-quoted-html-local-yank)
@@ -125,7 +151,7 @@ to the end of the mail."
   (let ((processed-results (remove-and-get-inline-mail-content content)))
     (with-temp-buffer
       (insert (car processed-results))
-      (muse-publish-markup-buffer nil "html")
+      (publish-and-update-tags)
       (list (buffer-string) (cadr processed-results) nil))))
 
 (defun remove-trailing-newline (s)
