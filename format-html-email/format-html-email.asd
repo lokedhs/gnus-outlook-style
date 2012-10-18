@@ -13,7 +13,8 @@
                :string-case
                :cl-ppcre
                :cl-fad
-               :temporary-file)
+               :temporary-file
+               :trivial-shell)
   :serial t
   :components ((:file "package")
                (:file "format")))

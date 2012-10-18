@@ -187,4 +187,4 @@ quoted emails to look bad."
 
     (error (cond)
       (trivial-backtrace:print-condition cond *error-output*)
-      #+sbcl (sb-ext:exit :code 1))))
+      (trivial-shell:exit :failure))))
