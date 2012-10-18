@@ -6,15 +6,6 @@
   (defparameter *html-namespace* "http://www.w3.org/1999/xhtml")
   (defparameter *html-namespaces* (list (list "h" *html-namespace*))))
 
-(defparameter *source-style* (concatenate 'string
-                                          "border: 1pt solid #000000;"
-                                          "background-color: #fbfbfb;"
-                                          "padding: 5pt;"
-                                          "font-family: monospace;"
-                                          "font-size: 90%;"
-                                          "overflow: auto;"
-                                          "margin-bottom: 1em;"))
-
 (defmacro with-html-namespaces (&body body)
   `(xpath:with-namespaces ,*html-namespaces*
      ,@body))
@@ -133,6 +124,15 @@ extract the corresponding images into individual files."
                         (xpath:evaluate "//h:img" doc))
     images-map))
 
+(defparameter *source-style* (concatenate 'string
+                                          "border: 1pt solid #000000;"
+                                          "background-color: #fbfbfb;"
+                                          "padding: 5pt;"
+                                          "font-family: monospace;"
+                                          "font-size: 90%;"
+                                          "overflow: auto;"
+                                          "margin-bottom: 1em;"))
+
 (defun update-styles-for-tree (div)
   "Update the style attribute for relevant nodes. Note that the fact that the nodes
 themselves are updated instead of adding a <style> section is intentional. There is
@@ -143,7 +143,7 @@ quoted emails to look bad."
                           (dom:set-attribute-ns node *html-namespace* "style" *source-style*))
                       (xpath:evaluate "//h:pre[@class='src']" div)))
 
-(defun quote-email (content old-content tmp-dir  &optional (stream *standard-output*))
+(defun quote-email (content old-content tmp-dir &optional (stream *standard-output*))
   (with-html-namespaces 
     (let* ((msg (with-open-file (in old-content) (mime4cl:read-mime-message in)))
            (content-doc (parse-html-content content))
@@ -152,12 +152,15 @@ quoted emails to look bad."
 
       (let ((div (dom:create-element-ns old-content-doc *html-namespace* "div")))
         (dom:set-attribute-ns div *html-namespace* "style" "font-family: Helvetica, sans-serif;")
+
         ;; Copy the new content into a div, which will subsequently be inserted into the old document
         (loop
            for node across (dom:child-nodes (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc)))
            do (dom:append-child div (dom:import-node old-content-doc node t)))
+
         ;; Process the div to insert explicit style attributes
-        (update-styles-for-tree div)
+        ;;(update-styles-for-tree div)
+
         ;; Insert the div that holds the new content, as well as the divider at the beginning of the old document
         (let ((n (xpath:first-node (xpath:evaluate "/h:html/h:body" old-content-doc)))
               (divider (dom:create-element-ns old-content-doc *html-namespace* "hr"))
