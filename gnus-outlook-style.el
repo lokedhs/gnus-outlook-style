@@ -181,7 +181,7 @@ to the end of the mail."
     (when (looking-at (concat email-muse-format-marker "\n"))
       (replace-match "")
       (let* ((orig-content (buffer-substring (point) (point-max)))
-             (parts (split-string orig-content (concat "^" mail-message-divider "$")))
+             (parts (split-string orig-content (concat "^" (regexp-quote mail-message-divider) "$")))
              (length (length parts))
              (processed-results (cond ((= length 1)
                                        (simple-muse-message (car parts)))
