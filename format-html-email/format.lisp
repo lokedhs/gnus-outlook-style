@@ -145,7 +145,7 @@ quoted emails to look bad."
 
 (defun quote-email (content old-content tmp-dir &optional (stream *standard-output*))
   (with-html-namespaces 
-    (let* ((msg (with-open-file (in old-content) (mime4cl:read-mime-message in)))
+    (let* ((msg (mime4cl:mime-message (pathname old-content)))
            (content-doc (parse-html-content content))
            (old-content-part (find-content-part msg))
            (old-content-doc (parse-content-as-html old-content-part)))
