@@ -65,6 +65,47 @@ extracted attachment specifications."
           do (replace-match "")
           finally (return (list (buffer-string) attachments)))))
 
+(defun publish-and-update-tags ()
+  "Convert the markup in the current buffer to HTML"
+  (let ((content (buffer-string))
+        new-content)
+    ;; Publish the HTML to a separate buffer since muse-publish-markup-buffer will
+    ;; add read-only properites to the output that has to be removed before we
+    ;; can change the content.
+    (with-temp-buffer
+      (insert content)
+      (muse-publish-markup-buffer nil "html")
+      (setq new-content (substring-no-properties (buffer-string))))
+    (delete-region (point-min) (point-max))
+    (insert new-content)
+
+    ;; Change the style of <pre class="src"> blocks by adding a border around it.
+    ;;
+    ;; We also wrap these blocks in a <div> block with a margin-bottom in order to
+    ;; push the next paragraph down a little. This is necessary on Outlook since
+    ;; otherwise the next paragraph will come immediately after the <pre> block.
+    ;;
+    ;; This modification is done by adding a style attribute to the node itself
+    ;; rather than to style the "src" class. This is done in order to avoid any
+    ;; problems when someone replies to the mail and possibly changes the styles.
+    (let ((case-fold-search nil))
+      (goto-char (point-min))
+      (while (re-search-forward "<pre class=\"src\">" nil t)
+        (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\""
+                               "border: 1pt solid #b0b0b0;"
+                               "background-color: #fbfbfb;"
+                               "padding: 5pt;"
+                               "font-family: monospace;"
+                               "font-size: 90%;"
+                               "overflow: auto;"
+                               "\">"))
+        ;; Need to delete the newline here since Outlook will otherwise
+        ;; display an empty line at the beginning of the block.
+        (when (looking-at "\n")
+          (delete-char 1))
+        (re-search-forward "</pre>")
+        (insert "</div>")))))
+
 (defun get-next-pair ()
   (flet ((line-content ()
                        (when (looking-at "==END==")
@@ -79,32 +120,6 @@ extracted attachment specifications."
       (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\">\n<#/part>"
                     type id id file id)
             file))))
-
-(defun publish-and-update-tags ()
-  (let ((content (buffer-string))
-        new-content)
-    (with-temp-buffer
-      (insert content)
-      (muse-publish-markup-buffer nil "html")
-      (setq new-content (substring-no-properties (buffer-string))))
-    (delete-region (point-min) (point-max))
-    (insert new-content)
-
-    (let ((case-fold-search nil))
-      (goto-char (point-min))
-      (while (re-search-forward "<pre class=\"src\">" nil t)
-        (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\""
-                               "border: 1pt solid #b0b0b0;"
-                               "background-color: #fbfbfb;"
-                               "padding: 5pt;"
-                               "font-family: monospace;"
-                               "font-size: 90%;"
-                               "overflow: auto;"
-                               "\">"))
-        (when (looking-at "\n")
-          (delete-char 1))
-        (re-search-forward "</pre>")
-        (insert "</div>")))))
 
 (defun generate-quoted-html (new-content)
   "Given the new email's content, combine it with the old email thread and
