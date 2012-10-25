@@ -14,6 +14,78 @@
   (let* ((doc (closure-html:parse file (cxml-dom:make-dom-builder))))
     doc))
 
+(defun external-format-from-name (name)
+  (handler-case
+      (flexi-streams:make-external-format (intern (string-upcase name) "KEYWORD"))
+    (flexi-streams:external-format-error () nil)))
+
+(defun chars-to-string (stream)
+  (with-output-to-string (out)
+    (loop
+       for ch = (read-char stream nil nil)
+       while ch
+       do (write-char ch out))))
+
+(defun parse-html-content-with-encoding (content format)
+  (let* ((in (flexi-streams:make-in-memory-input-stream content))
+         (enc (flexi-streams:make-flexi-stream in :external-format format))
+         (content-as-string (chars-to-string enc)))
+    (parse-html-content content-as-string)))
+
+(defun read-stream-to-byte-array (stream)
+  (let* ((type '(unsigned-byte 8))
+         (buf (make-array (* 1024 16) :element-type type))
+         (result (make-array (* 1024 16) :element-type type :adjustable t :fill-pointer 0)))
+    (loop
+       for length = (read-sequence buf stream)
+       do (loop
+             repeat length
+             for element across buf
+             do (vector-push-extend element result))
+       while (= length (array-dimension buf 0)))
+    result))
+
+(defun plain-parse-bytes-to-string (bytes)
+  "Given an array of bytes, return a string consisting of all values in the
+array between 0 and 127, converted to a character. In other words, this function
+converts an input string into a plain ASCII string, dropping everything that
+can't be parsed."
+  (let ((result (make-array (array-dimension bytes 0) :element-type 'character :adjustable t :fill-pointer 0)))
+    (loop
+       for byte across bytes
+       when (<= 0 byte 127)
+       do (vector-push-extend (code-char byte) result))
+    result))
+
+(defun find-charset-from-content-type (content)
+  (let ((scanner (cl-ppcre:create-scanner ".*charset=([^ ]*)" :case-insensitive-mode t)))
+    (multiple-value-bind (match strings) (cl-ppcre:scan-to-strings scanner content)
+      (when match
+        (aref strings 0)))))
+
+(defun find-encoding-from-content-type (content)
+  (let ((scanner (cl-ppcre:create-scanner "<meta[^>]*http-equiv=(['\"])content-type\\1[^>]*content=(['\"])([^'\"]*)\\2.*>" :case-insensitive-mode t)))
+      (multiple-value-bind (match strings) (cl-ppcre:scan-to-strings scanner content)
+        (when match
+          (find-charset-from-content-type (aref strings 2))))))
+
+(defun parse-html-handle-encoding (stream)
+  "Read STREAM and parse it as HTML, returning the corresponding DOM tree.
+This function differs from CLOSURE-HTML:PARSE in that it takes the
+<meta content> tags into consideration."
+  (let* ((content-buffer (read-stream-to-byte-array stream))
+         (string (plain-parse-bytes-to-string content-buffer)))
+    ;; Now we have a string consisting of just the BASIC LATIN characters from the input
+    (let ((encoding (find-encoding-from-content-type string)))
+      (if encoding
+          (let ((fmt (external-format-from-name encoding)))
+            (if fmt
+                ;; We're good, we found a format
+                (parse-html-content-with-encoding content-buffer fmt)
+                ;; No format. We could parse the ASCII here, but right now it's best to simply bail
+                (error "Unknown content type: ~s" encoding)))
+          (parse-html-content content-buffer)))))
+
 (defun find-mime-part-by-type (msg type)
   (mime4cl:do-parts (part msg)
     (when (and (typep part 'mime4cl:mime-text)
@@ -50,8 +122,8 @@
 
 (defun parse-content-as-html (part)
   (string-case:string-case ((mime4cl:mime-type-string part))
-    ("text/html" (closure-html:parse (mime4cl:mime-body-stream part) (cxml-dom:make-dom-builder)))
-    ("text/plain" (closure-html:parse (format-plain-text-as-html part) (cxml-dom:make-dom-builder)))
+    ("text/html" (parse-html-handle-encoding (mime4cl:mime-body-stream part)))
+    ("text/plain" (parse-html-handle-encoding (format-plain-text-as-html part)))
     (t "Error: got an unrecognised part type, code possibly out of sync with find-content-part")))
 
 (defvar *quoted-headers* '(("date" "Date:")
