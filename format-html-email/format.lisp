@@ -78,12 +78,14 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
     ;; Now we have a string consisting of just the BASIC LATIN characters from the input
     (let ((encoding (find-encoding-from-content-type string)))
       (if encoding
+          ;; We found an encoding, now check if it's valid
           (let ((fmt (external-format-from-name encoding)))
             (if fmt
                 ;; We're good, we found a format
                 (parse-html-content-with-encoding content-buffer fmt)
                 ;; No format. We could parse the ASCII here, but right now it's best to simply bail
                 (error "Unknown content type: ~s" encoding)))
+          ;; No encoding found in the document, simply parse the buffer using default encoding
           (parse-html-content content-buffer)))))
 
 (defun find-mime-part-by-type (msg type)
