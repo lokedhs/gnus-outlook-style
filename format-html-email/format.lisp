@@ -32,6 +32,12 @@
          (content-as-string (chars-to-string enc)))
     (parse-html-content content-as-string)))
 
+(defun parse-html-content-with-encoding-safe (content format)
+  (handler-case
+      (parse-html-content-with-encoding content format)
+    (flexi-streams:external-format-encoding-error ()
+      (parse-html-content-with-encoding content :iso-8859-1))))
+
 (defun read-stream-to-byte-array (stream)
   (let* ((type '(unsigned-byte 8))
          (buf (make-array (* 1024 16) :element-type type))
@@ -82,7 +88,7 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
           (let ((fmt (external-format-from-name encoding)))
             (if fmt
                 ;; We're good, we found a format
-                (parse-html-content-with-encoding content-buffer fmt)
+                (parse-html-content-with-encoding-safe content-buffer fmt)
                 ;; No format. We could parse the ASCII here, but right now it's best to simply bail
                 (error "Unknown content type: ~s" encoding)))
           ;; No encoding found in the document, simply parse the buffer using default encoding
