@@ -27,16 +27,17 @@
        do (write-char ch out))))
 
 (defun parse-html-content-with-encoding (content format)
-  (let* ((in (flexi-streams:make-in-memory-input-stream content))
-         (enc (flexi-streams:make-flexi-stream in :external-format format))
-         (content-as-string (chars-to-string enc)))
-    (parse-html-content content-as-string)))
+  (flet ((parse (format)
+           (let* ((in (flexi-streams:make-in-memory-input-stream content))
+                  (enc (flexi-streams:make-flexi-stream in :external-format format))
+                  (content-as-string (chars-to-string enc)))
+             (parse-html-content content-as-string))))
 
-(defun parse-html-content-with-encoding-safe (content format)
-  (handler-case
-      (parse-html-content-with-encoding content format)
-    (flexi-streams:external-format-encoding-error ()
-      (parse-html-content-with-encoding content :iso-8859-1))))
+    (handler-case
+        (parse format)
+
+      (flexi-streams:external-format-encoding-error ()
+        (parse :iso-8859-1)))))
 
 (defun read-stream-to-byte-array (stream)
   (let* ((type '(unsigned-byte 8))
@@ -88,7 +89,7 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
           (let ((fmt (external-format-from-name encoding)))
             (if fmt
                 ;; We're good, we found a format
-                (parse-html-content-with-encoding-safe content-buffer fmt)
+                (parse-html-content-with-encoding content-buffer fmt)
                 ;; No format. We could parse the ASCII here, but right now it's best to simply bail
                 (error "Unknown content type: ~s" encoding)))
           ;; No encoding found in the document, simply parse the buffer using default encoding
@@ -116,6 +117,9 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
               (t   (write-char ch out))))
       (format out "</pre></body></html>"))))
 
+(defun string-as-utf-8-stream (string)
+  (flexi-streams:make-in-memory-input-stream (babel:string-to-octets string :encoding :utf-8)))
+
 (defun find-content-part (msg)
   "Given a MIME message, return the part that contains the actual email content."
   (alexandria:if-let ((html-part (find-mime-part-by-type msg "text/html")))
@@ -131,7 +135,7 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
 (defun parse-content-as-html (part)
   (string-case:string-case ((mime4cl:mime-type-string part))
     ("text/html" (parse-html-handle-encoding (mime4cl:mime-body-stream part)))
-    ("text/plain" (parse-html-handle-encoding (format-plain-text-as-html part)))
+    ("text/plain" (parse-html-handle-encoding (string-as-utf-8-stream (format-plain-text-as-html part))))
     (t "Error: got an unrecognised part type, code possibly out of sync with find-content-part")))
 
 (defvar *quoted-headers* '(("date" "Date:")
