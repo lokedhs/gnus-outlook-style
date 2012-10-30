@@ -178,7 +178,7 @@ to the end of the mail."
   (interactive)
   (save-excursion
     (message-goto-body)
-    (when (looking-at (concat email-muse-format-marker "\n"))
+    (when (looking-at (regexp-quote (concat email-muse-format-marker "\n")))
       (replace-match "")
       (let* ((orig-content (buffer-substring (point) (point-max)))
              (parts (split-string orig-content (concat "^" (regexp-quote mail-message-divider) "$")))
@@ -243,3 +243,55 @@ to the end of the mail."
 (add-hook 'gnus-message-setup-hook 'mail-insert-divider)
 (add-hook 'message-send-hook 'call-muse-for-message)
 (add-hook 'message-sent-hook 'cleanup-temporary-attachments)
+
+;;;
+;;;  Editor
+;;;
+
+(defun find-muse-message-boundaries ()
+  (save-excursion
+    (search-forward (regexp-quote (concat email-muse-format-marker "\n")) nil t)
+    (let ((start (point))
+          (end (if (search-forward (regexp-quote mail-message-divider) nil t)
+                   (- (point) (length mail-message-divider))
+               (point-max))))
+      (list start end))))
+
+(defun save-muse-mode-buffer ()
+  (interactive)
+  (unless (boundp 'local-muse-mode-mail-buffer)
+    (error "Not in local muse edit mode"))
+  (let ((content (buffer-string))
+        (buffer (current-buffer)))
+    (switch-to-buffer local-muse-mode-mail-buffer)
+    (let ((boundaries (find-muse-message-boundaries)))
+      (unless boundaries
+        (error "Unable to find message boundaries"))
+      (delete-region (car boundaries) (cadr boundaries))
+      (goto-char (car boundaries))
+      (insert content)
+      (goto-char (car boundaries))
+      (kill-buffer buffer))))
+
+(defun edit-mail-in-muse-mode ()
+  (interactive)
+  (message-goto-body)
+  (let ((boundaries (find-muse-message-boundaries)))
+    (if boundaries
+        (let* ((mail-buffer (current-buffer))
+               (content (buffer-substring (car boundaries) (cadr boundaries)))
+               (buffer (if (boundp 'local-muse-buffer)
+                           local-muse-buffer
+                         (set (make-local-variable 'local-muse-buffer)
+                              (generate-new-buffer "*Muse Edit Mail*")))))
+          (switch-to-buffer buffer)
+          (insert content)
+          (goto-char (point-min))
+          (muse-mode)
+          (local-set-key (kbd "C-c C-c") 'save-muse-mode-buffer)
+          (set (make-local-variable 'local-muse-mode-mail-buffer) mail-buffer))
+      (message "Muse format marker not found"))))
+
+(add-hook 'gnus-message-setup-hook
+          (lambda ()
+            (local-set-key (kbd "C-c C-e") 'edit-mail-in-muse-mode)))
