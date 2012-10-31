@@ -16,8 +16,11 @@
 
 (defun external-format-from-name (name)
   (handler-case
-      (flexi-streams:make-external-format (intern (string-upcase name) "KEYWORD"))
-    (flexi-streams:external-format-error () nil)))
+      (let ((name-as-symbol (intern (string-upcase name) "KEYWORD")))
+        (babel:make-external-format (if (eq name-as-symbol :gb2312)
+                                        :gbk
+                                        name-as-symbol)))
+    (simple-error () nil)))
 
 (defun chars-to-string (stream)
   (with-output-to-string (out)
@@ -28,15 +31,11 @@
 
 (defun parse-html-content-with-encoding (content format)
   (flet ((parse (format)
-           (let* ((in (flexi-streams:make-in-memory-input-stream content))
-                  (enc (flexi-streams:make-flexi-stream in :external-format format))
-                  (content-as-string (chars-to-string enc)))
+           (let ((content-as-string (babel:octets-to-string content :encoding format)))
              (parse-html-content content-as-string))))
-
     (handler-case
         (parse format)
-
-      (flexi-streams:external-format-encoding-error ()
+      (babel-encodings:character-decoding-error ()
         (parse :iso-8859-1)))))
 
 (defun read-stream-to-byte-array (stream)
