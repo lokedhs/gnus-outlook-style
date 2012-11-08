@@ -39,14 +39,23 @@
         (parse :iso-8859-1)))))
 
 (defun read-stream-to-byte-array (stream)
+  "Read a sequence of \(UNSIGNED-BYTE 8) into an array with this element type."
   (let* ((type '(unsigned-byte 8))
-         (buf (make-array (* 1024 16) :element-type type))
+         ;; Note that the buffer does not use (STREAM-ELEMENT-TYPE STREAM) as the
+         ;; element type. This is because mime4cl is broken and will sometimes
+         ;; return values outside of the valid range of the element type.
+         ;;
+         ;; In the specific case that caused this fix to be implemented, mime4cl
+         ;; returned a stream with element type (UNSIGNED-BYTE 8) but returned
+         ;; a value of 8211 (which happens to be the Unicode character EM DASH)
+         (buf (make-array (* 1024 16) :element-type 'unsigned-byte))
          (result (make-array (* 1024 16) :element-type type :adjustable t :fill-pointer 0)))
     (loop
        for length = (read-sequence buf stream)
        do (loop
              repeat length
              for element across buf
+             when (typep element type)
              do (vector-push-extend element result))
        while (= length (array-dimension buf 0)))
     result))
