@@ -10,7 +10,7 @@
 (require 'muse-html)
 
 (defcustom outlook-format-program "format_quoted_mail"
-  "The program used to merge the HTML content.")
+  "The program used to merge the HTML content." :type 'string)
 
 (defvar mail-message-divider "======== END OF MESSAGE ========")
 (defvar email-muse-format-marker "====== Muse format marker ======")
@@ -144,7 +144,7 @@ to the end of the mail."
       (with-temp-buffer
         (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
           (unless (zerop (shell-command (format "%s \"%s\" \"%s\" /tmp"
-                                                outlook-format-program
+                                                (expand-file-name outlook-format-program)
                                                 new-message old-message)
                                         (current-buffer) error-buffer))
             (switch-to-buffer error-buffer)
