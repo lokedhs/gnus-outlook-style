@@ -123,9 +123,10 @@ extracted attachment specifications."
 
 (defun generate-quoted-html (new-content)
   "Given the new email's content, combine it with the old email thread and
-generate the resulting HTML. This function returns a list of two elements:
-the new email content as a string, and a list of attachments to be added
-to the end of the mail."
+generate the resulting HTML. This function returns a list of three
+elements: the new email content as a string, a list of attachments to
+be added to the end of the mail and a list of files to be deleted after
+the email has been created."
   (let ((processed-results (remove-and-get-inline-mail-content new-content))
         (generate-quoted-html-local-yank local-yank))
     (unless generate-quoted-html-local-yank
