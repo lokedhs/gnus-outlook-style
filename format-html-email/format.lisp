@@ -50,14 +50,18 @@
          ;; a value of 8211 (which happens to be the Unicode character EM DASH)
          (buf (make-array (* 1024 16) :element-type 'unsigned-byte))
          (result (make-array (* 1024 16) :element-type type :adjustable t :fill-pointer 0)))
-    (loop
-       for length = (read-sequence buf stream)
-       do (loop
-             repeat length
-             for element across buf
-             when (typep element type)
-             do (vector-push-extend element result))
-       while (= length (array-dimension buf 0)))
+    (handler-bind (#+sbcl(sb-int:stream-decoding-error
+                          #'(lambda (condition)
+                              (declare (ignore condition))
+                              (invoke-restart 'sb-int:attempt-resync))))
+      (loop
+         for length = (read-sequence buf stream)
+         do (loop
+               repeat length
+               for element across buf
+               when (typep element type)
+               do (vector-push-extend element result))
+         while (= length (array-dimension buf 0))))
     result))
 
 (defun plain-parse-bytes-to-string (bytes)
