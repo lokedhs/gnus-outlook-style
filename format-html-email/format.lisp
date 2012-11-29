@@ -105,7 +105,7 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
                 ;; No format. We could parse the ASCII here, but right now it's best to simply bail
                 (error "Unknown content type: ~s" encoding)))
           ;; No encoding found in the document, simply parse the buffer using default encoding
-          (parse-html-content content-buffer)))))
+          (parse-html-content-with-encoding content-buffer :utf-8)))))
 
 (defun find-mime-part-by-type (msg type)
   (mime4cl:do-parts (part msg)
