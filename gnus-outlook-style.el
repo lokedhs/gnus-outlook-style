@@ -79,21 +79,24 @@ extracted attachment specifications."
     (delete-region (point-min) (point-max))
     (insert new-content)
 
-    ;; Change the style of <pre class="src"> blocks by adding a border around it.
-    ;;
-    ;; We also wrap these blocks in a <div> block with a margin-bottom in order to
-    ;; push the next paragraph down a little. This is necessary on Outlook since
-    ;; otherwise the next paragraph will come immediately after the <pre> block.
-    ;;
-    ;; This modification is done by adding a style attribute to the node itself
-    ;; rather than to style the "src" class. This is done in order to avoid any
-    ;; problems when someone replies to the mail and possibly changes the styles.
+    ;; The below code performs to rewriting of the HTML that came out of muse-publish.
+    ;; This could also be done by customising Muse, doing it this way was easier since
+    ;; it avoids having to dig too deep into Muse configuration.
     (let ((case-fold-search nil))
+      ;; Change the style of <pre class="src"> blocks by adding a border around it.
+      ;;
+      ;; We also wrap these blocks in a <div> block with a margin-bottom in order to
+      ;; push the next paragraph down a little. This is necessary on Outlook since
+      ;; otherwise the next paragraph will come immediately after the <pre> block.
+      ;;
+      ;; This modification is done by adding a style attribute to the node itself
+      ;; rather than to style the "src" class. This is done in order to avoid any
+      ;; problems when someone replies to the mail and possibly changes the styles.
       (goto-char (point-min))
       (while (re-search-forward "<pre class=\"src\">" nil t)
         (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\""
                                "border: 1pt solid #b0b0b0;"
-                               "background-color: #fbfbfb;"
+                               "background-color: #e8e8e8;"
                                "padding: 5pt;"
                                "font-family: monospace;"
                                "font-size: 90%;"
@@ -104,7 +107,17 @@ extracted attachment specifications."
         (when (looking-at "\n")
           (delete-char 1))
         (re-search-forward "</pre>")
-        (insert "</div>")))))
+        (insert "</div>"))
+
+      ;; Add some styling to the <code> tags. We'll change the background to grey
+      ;; and add a bit of margin. This makes it look a little like how such tags
+      ;; are rendered on Stackoverflow.
+      (goto-char (point-min))
+      (while (re-search-forward "<code>" nil t)
+        (replace-match (concat "<code style=\""
+                               "background: #e8e8e8; "
+                               "padding-left: 2px; "
+                               "padding-right: 2px;\">"))))))
 
 (defun get-next-pair ()
   (flet ((line-content ()
