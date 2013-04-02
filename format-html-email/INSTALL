@@ -4,3 +4,6 @@ Make sure that this source directory has been added as an ASDF project,
 for example by adding the directory to ASDF:*CENTRAL-REGISTRY*.
 
 Then, simply run the script make-binary.sh to generate the binary.
+
+Note that you absolutely must apply the patch to closure-html,
+or the replies will be full of BAD-TAG entries.
