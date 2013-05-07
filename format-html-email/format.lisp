@@ -275,9 +275,10 @@ quoted emails to look bad."
 
 (defun main ()
   (handler-case
-      (let ((args (command-line-arguments:get-command-line-arguments)))
+      (let ((args #+sbcl (cdr sb-ext:*posix-argv*)
+                  #-sbcl (command-line-arguments:get-command-line-arguments)))
         (unless (= (length args) 3)
-          (error "Usage: content old-content image-directory"))
+          (error (format nil "Usage: content old-content image-directory (args len=~a: ~s)" (length args) args)))
         (quote-email (pathname (nth 0 args))
                      (pathname (nth 1 args))
                      ;; Append an extra / to make sure the directory name is not
