@@ -12,8 +12,8 @@
 (defcustom outlook-format-program "format_quoted_mail"
   "The program used to merge the HTML content." :type 'string)
 
-(defvar mail-message-divider "======== END OF MESSAGE ========")
-(defvar email-muse-format-marker "====== Muse format marker ======")
+(defvar outlook-style-mail-message-divider "======== END OF MESSAGE ========")
+(defvar outlook-style-email-muse-format-marker "====== Muse format marker ======")
 
 (defun llog (fmt &rest args)
   (with-current-buffer (get-buffer-create "llog")
@@ -32,7 +32,7 @@
                (delete-file ,temp-file-name)))))
     `(progn ,@body)))
 
-(defun remove-inline-mail-content (text)
+(defun outlook-style--remove-inline-mail-content (text)
   (with-temp-buffer
     (insert text)
     (goto-char (point-min))
@@ -123,7 +123,7 @@ extracted attachment specifications."
   (flet ((line-content ()
                        (when (looking-at "==END==")
                          (error "Illegal attachment format"))
-                       (let ((s (remove-trailing-newline (thing-at-point 'line))))
+                       (let ((s (outlook-style--remove-trailing-newlines (thing-at-point 'line))))
                          (forward-line)
                          s)))
 
@@ -134,30 +134,57 @@ extracted attachment specifications."
                     type id id file id)
             file))))
 
-(defun generate-quoted-html (new-content)
+(defun outlook-style--get-parent-reference ()
+  "Return a reference to the parent mail. The CAR of the returned list
+is a symbol describing the source of the mail (mu, gnus-m...) and the
+CADR is the source-specific data."
+  (cond ((and (fboundp 'mu4e) (boundp 'mu4e-compose-parent-message) mu4e-compose-parent-message)
+         (list 'mu mu4e-compose-parent-message))
+
+        ((boundp 'yank)
+         (let ((id gnus-message-group-art)
+               (message (let ((v (car yank)))
+                          (etypecase v
+                            (number v)
+                            (list (car v))))))
+           (unless (or id message)
+             (error (format ("failed to find yank: %s" yank))))
+           (list 'gnus-m (list message (car id)))))
+
+        (t
+         (error "Unable to find parent reference"))))
+
+(defun outlook-style--get-email (reference file)
+  "Read the email referenced by REFERENCE into the file with name FILE."
+  (ecase (car reference)
+    (mu (destructuring-bind (&key path &allow-other-keys) (cadr reference)
+          (copy-file path file t)))
+    (gnus-m (let ((l (cadr reference))
+                  (file (make-temp-file "email-old")))
+              (with-temp-buffer
+                (gnus-request-article (car l) (cadr l) (current-buffer))
+                (write-file file))))))
+
+(defun outlook-style--generate-quoted-html (new-content)
   "Given the new email's content, combine it with the old email thread and
 generate the resulting HTML. This function returns a list of three
 elements: the new email content as a string, a list of attachments to
 be added to the end of the mail and a list of files to be deleted after
 the email has been created."
   (let ((processed-results (remove-and-get-inline-mail-content new-content))
-        (generate-quoted-html-local-yank local-yank))
-    (unless generate-quoted-html-local-yank
-      (error "local-yank is nil"))
+        (ref outlook-style-local-yank))
     (with-temp-files ((new-message "email-new")
                       (old-message "email-old"))
       (with-temp-buffer
         (insert (car processed-results))
         (publish-and-update-tags)
         (write-file new-message))
-      (with-temp-buffer
-        (gnus-request-article (car generate-quoted-html-local-yank)
-                              (cadr generate-quoted-html-local-yank)
-                              (current-buffer))
-        (write-file old-message))
+
+      (outlook-style--get-email ref old-message)
+
       (with-temp-buffer
         (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
-          (unless (zerop (shell-command (format "%s \"%s\" \"%s\" /tmp"
+          (unless (zerop (shell-command (format "%s '%s' '%s' /tmp"
                                                 (expand-file-name outlook-format-program)
                                                 new-message old-message)
                                         (current-buffer) error-buffer))
@@ -176,41 +203,42 @@ the email has been created."
                 (append (cadr processed-results) (mapcar #'car images))
                 (mapcar #'cadr images)))))))
 
-(defun simple-muse-message (content)
+(defun outlook-style--simple-muse-message (content)
   (let ((processed-results (remove-and-get-inline-mail-content content)))
     (with-temp-buffer
       (insert (car processed-results))
       (publish-and-update-tags)
       (list (buffer-string) (cadr processed-results) nil))))
 
-(defun remove-trailing-newline (s)
+(defun outlook-style--remove-trailing-newlines (s)
   (loop for i from (1- (length s)) downto 0
         while (member (aref s i) '(?\n ?\r))
         finally (return (subseq s 0 (1+ i)))))
 
-(defun call-muse-for-message ()
+(defun outlook-style--call-muse-for-message ()
   (interactive)
   (save-excursion
     (message-goto-body)
-    (when (looking-at (regexp-quote (concat email-muse-format-marker "\n")))
+    (when (looking-at (regexp-quote (concat outlook-style-email-muse-format-marker "\n")))
       (replace-match "")
       (let* ((orig-content (buffer-substring (point) (point-max)))
-             (parts (split-string orig-content (concat "^" (regexp-quote mail-message-divider) "$")))
+             (parts (split-string orig-content (concat "^" (regexp-quote outlook-style-mail-message-divider) "$")))
              (length (length parts))
              (processed-results (cond ((= length 1)
-                                       (simple-muse-message (car parts)))
-                                      ((= length 2)
-                                       (generate-quoted-html (car parts)))
+                                       (outlook-style--simple-muse-message (car parts)))
+                                      ((>= length 2)
+                                       (outlook-style--generate-quoted-html (car parts)))
                                       (t
-                                       (error "Split resulted in %d parts" length))))
+                                       (error "Split failed" length))))
              (attachments (cadr processed-results)))
         (destructuring-bind (content attachments files-to-delete) processed-results
           (delete-region (point) (point-max))
           (insert "<#multipart type=alternative>\n")
-          (insert (remove-inline-mail-content (car parts)))
-          (when (cadr parts)
+          (insert (outlook-style--remove-inline-mail-content (car parts)))
+          (when (cdr parts)
             (insert "\n===============================\n")
-            (insert (remove-inline-mail-content (cadr parts)) "\n"))
+            (dolist (v (cdr parts))
+              (insert (outlook-style--remove-inline-mail-content v) "\n")))
           (when attachments
             (insert "<#multipart type=related>\n"))
           (insert "<#part type=text/html>\n")
@@ -223,62 +251,55 @@ the email has been created."
 
           ;; If there are files to be deleted, add them to the buffer-local list
           (when files-to-delete
-            (set (make-local-variable 'local-temporary-files) files-to-delete)))))))
+            (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete)))))))
           
-(defun mail-insert-divider ()
+(defun outlook-style--gnus-prepare ()
   (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
     (let ((replyp (save-excursion
                     (message-goto-body)
                     (cond ((= (point) (point-max))
                            nil)
                           (t
-                           (insert "\n\n" mail-message-divider "\n")
+                           (insert "\n\n" outlook-style-mail-message-divider "\n")
                            (replace-regexp "^> ?\\(.*\\)$" "\\1" nil (point) (point-max))
                            t)))))
       (message-goto-body)
-      (insert email-muse-format-marker "\n")
+      (insert outlook-style-email-muse-format-marker "\n")
 
       (if replyp
-          (let ((id gnus-message-group-art)
-                (message (let ((v (car yank)))
-                           (etypecase v
-                             (number v)
-                             (list (car v))))))
-            (unless (or id message)
-              (error (format ("failed to find yank: %s" yank))))
-            (set (make-local-variable 'local-yank) (list message (car id))))
+          (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
         (message-goto-to)))))
 
-(defun cleanup-temporary-attachments ()
-  (when (boundp 'local-temporary-files)
-    (dolist (f local-temporary-files)
+(defun outlook-style--cleanup-temporary-attachments ()
+  (when (boundp 'outlook-style-local-temporary-files)
+    (dolist (f outlook-style-local-temporary-files)
       (delete-file f))))
 
-(add-hook 'gnus-message-setup-hook 'mail-insert-divider)
-(add-hook 'message-send-hook 'call-muse-for-message)
-(add-hook 'message-sent-hook 'cleanup-temporary-attachments)
+(add-hook 'gnus-message-setup-hook 'outlook-style--gnus-prepare)
+(add-hook 'message-send-hook 'outlook-style--call-muse-for-message)
+(add-hook 'message-sent-hook 'outlook-style--cleanup-temporary-attachments)
 
 ;;;
 ;;;  Editor
 ;;;
 
-(defun find-muse-message-boundaries ()
+(defun outlook-style--find-muse-message-boundaries ()
   (save-excursion
-    (search-forward (regexp-quote (concat email-muse-format-marker "\n")) nil t)
+    (search-forward (regexp-quote (concat outlook-style-email-muse-format-marker "\n")) nil t)
     (let ((start (point))
-          (end (if (search-forward (regexp-quote mail-message-divider) nil t)
-                   (- (point) (length mail-message-divider))
+          (end (if (search-forward (regexp-quote outlook-style-mail-message-divider) nil t)
+                   (- (point) (length outlook-style-mail-message-divider))
                (point-max))))
       (list start end))))
 
-(defun save-muse-mode-buffer ()
+(defun outlook-style-save-muse-mode-buffer ()
   (interactive)
   (unless (boundp 'local-muse-mode-mail-buffer)
     (error "Not in local muse edit mode"))
   (let ((content (buffer-string))
         (buffer (current-buffer)))
     (switch-to-buffer local-muse-mode-mail-buffer)
-    (let ((boundaries (find-muse-message-boundaries)))
+    (let ((boundaries (outlook-style--find-muse-message-boundaries)))
       (unless boundaries
         (error "Unable to find message boundaries"))
       (delete-region (car boundaries) (cadr boundaries))
@@ -290,7 +311,7 @@ the email has been created."
 (defun edit-mail-in-muse-mode ()
   (interactive)
   (message-goto-body)
-  (let ((boundaries (find-muse-message-boundaries)))
+  (let ((boundaries (outlook-style--find-muse-message-boundaries)))
     (if boundaries
         (let* ((mail-buffer (current-buffer))
                (content (buffer-substring (car boundaries) (cadr boundaries)))
@@ -302,10 +323,27 @@ the email has been created."
           (insert content)
           (goto-char (point-min))
           (muse-mode)
-          (local-set-key (kbd "C-c C-c") 'save-muse-mode-buffer)
+          (local-set-key (kbd "C-c C-c") 'outlook-style-save-muse-mode-buffer)
           (set (make-local-variable 'local-muse-mode-mail-buffer) mail-buffer))
       (message "Muse format marker not found"))))
 
 (add-hook 'gnus-message-setup-hook
           (lambda ()
             (local-set-key (kbd "C-c C-e") 'edit-mail-in-muse-mode)))
+
+;;;
+;;;  Setup for mu4e
+;;;
+
+(defvar *outlook-style-mu4e-old-compose-func* nil)
+
+(defun outlook-style--mu4e-compose (compose-type &optional original-msg includes)
+  (funcall *outlook-style-mu4e-old-compose-func* compose-type original-msg includes)
+  (outlook-style--gnus-prepare))
+
+(defun outlook-style-setup-mu4e ()
+  (setq *outlook-style-mu4e-old-compose-func* mu4e-compose-func)
+  (setq mu4e-compose-func 'outlook-style--mu4e-compose))
+
+(when (fboundp 'mu4e)
+  (outlook-style-setup-mu4e))
