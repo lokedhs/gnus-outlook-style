@@ -345,7 +345,8 @@ the email has been created."
   (setq *outlook-style-mu4e-old-compose-func* mu4e-compose-func)
   (setq mu4e-compose-func 'outlook-style--mu4e-compose)
   (defadvice mu4e~compose-handler (after mu4e-compose-adafter (compose-type &optional original-msg includes))
-    (outlook-style--gnus-prepare))
+    (when (eq compose-type 'new)
+      (outlook-style--gnus-prepare)))
   (ad-activate 'mu4e~compose-handler))
 
 (when (fboundp 'mu4e)
