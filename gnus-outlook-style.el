@@ -9,8 +9,27 @@
 (require 'muse-publish)
 (require 'muse-html)
 
-(defcustom outlook-format-program "format_quoted_mail"
-  "The program used to merge the HTML content." :type 'string)
+(defgroup outlook-style nil "Customisation for outlook-style" :prefix 'outlook-style)
+
+(defcustom outlook-style-format-helper-location "format_quoted_mail"
+  "The program used to merge the HTML content."
+  :type 'string
+  :group 'outlook-style)
+
+(defcustom outlook-style-body-css "font-family: Helvetica, sans-serif; font-size: 12;"
+  "The style applied to the body element of the generated HTML."
+  :type 'string
+  :group 'outlook-style)
+
+(defcustom outlook-style-src-css "border: 1pt solid #b0b0b0; background-color: #e8e8e8; padding: 5pt; font-family: monospace; font-size: 90%; overflow: auto;"
+  "The style that is applies to code elements."
+  :type 'string
+  :group 'outlook-style)
+
+(defcustom outlook-style-code-css "background: #e8e8e8; padding-left: 2px; padding-right: 2px;"
+  "The style that is applies to code elements."
+  :type 'string
+  :group 'outlook-style)
 
 (defvar outlook-style-mail-message-divider "======== END OF MESSAGE ========")
 (defvar outlook-style-email-muse-format-marker "====== Muse format marker ======")
@@ -52,7 +71,7 @@
         (delete-region begin (point))))
     (buffer-string)))
 
-(defun remove-and-get-inline-mail-content (text)
+(defun outlook-style--remove-and-get-inline-mail-content (text)
   "Remove inline attachment specifications. This function returns
 a list where the first element consists of the resulting email
 without attachments, and the second element being a list of the
@@ -65,7 +84,7 @@ extracted attachment specifications."
           do (replace-match "")
           finally (return (list (buffer-string) attachments)))))
 
-(defun publish-and-update-tags ()
+(defun outlook-style--publish-and-update-tags ()
   "Convert the markup in the current buffer to HTML"
   (let ((content (buffer-string))
         new-content)
@@ -82,57 +101,40 @@ extracted attachment specifications."
     ;; The below code performs to rewriting of the HTML that came out of muse-publish.
     ;; This could also be done by customising Muse, doing it this way was easier since
     ;; it avoids having to dig too deep into Muse configuration.
-    (let ((case-fold-search nil))
-      ;; Change the style of <pre class="src"> blocks by adding a border around it.
-      ;;
-      ;; We also wrap these blocks in a <div> block with a margin-bottom in order to
-      ;; push the next paragraph down a little. This is necessary on Outlook since
-      ;; otherwise the next paragraph will come immediately after the <pre> block.
-      ;;
-      ;; This modification is done by adding a style attribute to the node itself
-      ;; rather than to style the "src" class. This is done in order to avoid any
-      ;; problems when someone replies to the mail and possibly changes the styles.
-      (goto-char (point-min))
-      (while (re-search-forward "<pre class=\"src\">" nil t)
-        (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\""
-                               "border: 1pt solid #b0b0b0;"
-                               "background-color: #e8e8e8;"
-                               "padding: 5pt;"
-                               "font-family: monospace;"
-                               "font-size: 90%;"
-                               "overflow: auto;"
-                               "\">"))
-        ;; Need to delete the newline here since Outlook will otherwise
-        ;; display an empty line at the beginning of the block.
-        (when (looking-at "\n")
-          (delete-char 1))
-        (re-search-forward "</pre>")
-        (insert "</div>"))
+    (when nil
+      (let ((case-fold-search nil))
+        ;; Change the style of <pre class="src"> blocks by adding a border around it.
+        ;;
+        ;; We also wrap these blocks in a <div> block with a margin-bottom in order to
+        ;; push the next paragraph down a little. This is necessary on Outlook since
+        ;; otherwise the next paragraph will come immediately after the <pre> block.
+        ;;
+        ;; This modification is done by adding a style attribute to the node itself
+        ;; rather than to style the "src" class. This is done in order to avoid any
+        ;; problems when someone replies to the mail and possibly changes the styles.
+        (goto-char (point-min))
+        (while (re-search-forward "<pre class=\"src\">" nil t)
+          (replace-match (concat "<div style=\"margin-bottom: 1em;\"><pre style=\"" outlook-style-src-css "\">"))
+          ;; Need to delete the newline here since Outlook will otherwise
+          ;; display an empty line at the beginning of the block.
+          (when (looking-at "\n")
+            (delete-char 1))
+          (re-search-forward "</pre>")
+          (insert "</div>"))
 
-      ;; Add some styling to the <code> tags. We'll change the background to grey
-      ;; and add a bit of margin. This makes it look a little like how such tags
-      ;; are rendered on Stackoverflow.
-      (goto-char (point-min))
-      (while (re-search-forward "<code>" nil t)
-        (replace-match (concat "<code style=\""
-                               "background: #e8e8e8; "
-                               "padding-left: 2px; "
-                               "padding-right: 2px;\">"))))))
+        ;; Add some styling to the <code> tags. We'll change the background to grey
+        ;; and add a bit of margin. This makes it look a little like how such tags
+        ;; are rendered on Stackoverflow.
+        (goto-char (point-min))
+        (while (re-search-forward "<code>" nil t)
+          (replace-match (concat "<code style=\"" outlook-style-code-css "\">")))))))
 
-(defun get-next-pair ()
-  (flet ((line-content ()
-                       (when (looking-at "==END==")
-                         (error "Illegal attachment format"))
-                       (let ((s (outlook-style--remove-trailing-newlines (thing-at-point 'line))))
-                         (forward-line)
-                         s)))
-
-    (let* ((id (line-content))
-           (type (line-content))
-           (file (line-content)))
-      (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\">\n<#/part>"
-                    type id id file id)
-            file))))
+(defun outlook-style--process-source-email (content file)
+  "Convert the email content to HTML using Muse and write the output to FILE"
+    (with-temp-buffer
+      (insert content)
+      (outlook-style--publish-and-update-tags)
+      (write-file file)))
 
 (defun outlook-style--get-parent-reference ()
   "Return a reference to the parent mail. The CAR of the returned list
@@ -165,50 +167,83 @@ CADR is the source-specific data."
                 (gnus-request-article (car l) (cadr l) (current-buffer))
                 (write-file file))))))
 
+(defun outlook-style--escape-lisp (s)
+  (with-output-to-string
+    (loop for ch across s
+          do (princ (case ch
+                      (?\\ "\\\\")
+                      (?\" "\\\"")
+                      (10  "\\n")
+                      (13  "\\r")
+                      (t   (char-to-string ch)))))))
+
+(defun outlook-style--write-styles-settings (file)
+  (flet ((print-param (name value) (insert (concat name "=" (outlook-style--escape-lisp value) "\n"))))
+    (with-temp-buffer
+      (print-param "body" outlook-style-body-css)
+      (print-param "src" outlook-style-src-css)
+      (print-param "code" outlook-style-code-css)
+      (write-file file))))
+
+(defun outlook-style--get-next-pair ()
+  (flet ((line-content ()
+                       (when (looking-at "==END==")
+                         (error "Illegal attachment format"))
+                       (let ((s (outlook-style--remove-trailing-newlines (thing-at-point 'line))))
+                         (forward-line)
+                         s)))
+
+    (let* ((id (line-content))
+           (type (line-content))
+           (file (line-content)))
+      (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\">\n<#/part>"
+                    type id id file id)
+            file))))
+
+(defun outlook-style--call-email-format (new-message old-message attachment-list)
+  (with-temp-files ((styles-filename "styles"))
+    (outlook-style--write-styles-settings styles-filename)
+
+    (with-temp-buffer
+      (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
+        (unless (zerop (shell-command (format "%s '%s' '%s' /tmp '%s'"
+                                              (expand-file-name outlook-style-format-helper-location)
+                                              new-message old-message styles-filename)
+                                      (current-buffer) error-buffer))
+          (switch-to-buffer error-buffer)
+          (error "Formatting of email failed")))
+
+      (goto-char (point-min))
+      (let ((images (loop while (not (looking-at "==END=="))
+                          collect (outlook-style--get-next-pair))))
+        (forward-line) ; Skip past the ==END== marker so it gets deleted too
+        (when (= (point) (point-max))
+          (error "Reached the end of the buffer while processing attachments"))
+        (delete-region (point-min) (point))
+
+        (list (buffer-string)
+              (append attachment-list (mapcar #'car images))
+              (mapcar #'cadr images))))))
+
 (defun outlook-style--generate-quoted-html (new-content)
   "Given the new email's content, combine it with the old email thread and
 generate the resulting HTML. This function returns a list of three
 elements: the new email content as a string, a list of attachments to
 be added to the end of the mail and a list of files to be deleted after
 the email has been created."
-  (let ((processed-results (remove-and-get-inline-mail-content new-content))
-        (ref outlook-style-local-yank))
-    (with-temp-files ((new-message "email-new")
-                      (old-message "email-old"))
-      (with-temp-buffer
-        (insert (car processed-results))
-        (publish-and-update-tags)
-        (write-file new-message))
-
-      (outlook-style--get-email ref old-message)
-
-      (with-temp-buffer
-        (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
-          (unless (zerop (shell-command (format "%s '%s' '%s' /tmp"
-                                                (expand-file-name outlook-format-program)
-                                                new-message old-message)
-                                        (current-buffer) error-buffer))
-            (switch-to-buffer error-buffer)
-            (error "Formatting of email failed")))
-
-        (goto-char (point-min))
-        (let ((images (loop while (not (looking-at "==END=="))
-                            collect (get-next-pair))))
-          (forward-line) ; Skip past the ==END== marker so it gets deleted too
-          (when (= (point) (point-max))
-            (error "Reached the end of the buffer while processing attachments"))
-          (delete-region (point-min) (point))
-
-          (list (buffer-string)
-                (append (cadr processed-results) (mapcar #'car images))
-                (mapcar #'cadr images)))))))
+  (let ((processed-results (outlook-style--remove-and-get-inline-mail-content new-content)))
+    (let ((ref outlook-style-local-yank))
+      (with-temp-files ((new-message "email-new")
+                        (old-message "email-old"))
+        (outlook-style--process-source-email (car processed-results) new-message)
+        (outlook-style--get-email ref old-message)
+        (outlook-style--call-email-format new-message old-message (cadr processed-results))))))
 
 (defun outlook-style--simple-muse-message (content)
-  (let ((processed-results (remove-and-get-inline-mail-content content)))
-    (with-temp-buffer
-      (insert (car processed-results))
-      (publish-and-update-tags)
-      (list (buffer-string) (cadr processed-results) nil))))
+  (let ((processed-results (outlook-style--remove-and-get-inline-mail-content content)))
+    (with-temp-files ((file "email-new"))
+      (outlook-style--process-source-email (car processed-results) file)
+      (outlook-style--call-email-format file "new" (cadr processed-results)))))
 
 (defun outlook-style--remove-trailing-newlines (s)
   (loop for i from (1- (length s)) downto 0
@@ -231,6 +266,7 @@ the email has been created."
                                       (t
                                        (error "Split failed" length))))
              (attachments (cadr processed-results)))
+
         (destructuring-bind (content attachments files-to-delete) processed-results
           (delete-region (point) (point-max))
           (insert "<#multipart type=alternative>\n")
@@ -252,7 +288,7 @@ the email has been created."
           ;; If there are files to be deleted, add them to the buffer-local list
           (when files-to-delete
             (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete)))))))
-          
+
 (defun outlook-style--gnus-prepare ()
   (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
     (let ((replyp (save-excursion
@@ -289,7 +325,7 @@ the email has been created."
     (let ((start (point))
           (end (if (search-forward (regexp-quote outlook-style-mail-message-divider) nil t)
                    (- (point) (length outlook-style-mail-message-divider))
-               (point-max))))
+                 (point-max))))
       (list start end))))
 
 (defun outlook-style-save-muse-mode-buffer ()

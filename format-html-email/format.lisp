@@ -22,12 +22,42 @@
                                         name-as-symbol)))
     (simple-error () nil)))
 
-(defun chars-to-string (stream)
-  (with-output-to-string (out)
-    (loop
-       for ch = (read-char stream nil nil)
-       while ch
-       do (write-char ch out))))
+(defun parse-styles-file (file)
+  (labels ((remove-escapes (s)
+             (with-output-to-string (out)
+               (loop
+                  with next-escape = nil
+                  for ch across s
+                  do (cond ((not (null next-escape))
+                            (write-char (ecase ch
+                                          (#\n #\Newline)
+                                          (#\r #\Return)
+                                          (#\\ #\\)
+                                          (#\" #\"))
+                                        out)
+                            (setq next-escape nil))
+                           ((char= ch #\\)
+                            (setq next-escape t))
+                           (t
+                            (write-char ch out)))
+                  finally (when next-escape
+                            (error "Escaped string ends with backslash"))))))
+
+    (with-open-file (in file)
+      (loop
+         for s = (read-line in nil nil)
+         while s
+         collect (multiple-value-bind (match strings)
+                     (cl-ppcre:scan-to-strings "^([a-zA-Z]+)=(.*)$" s)
+                   (unless match
+                     (error "Cannot parse styles line: ~s" s))
+                   (cons (aref strings 0) (remove-escapes (aref strings 1))))))))
+
+(defun find-css (styles name)
+  (let ((v (assoc name styles :test #'equal)))
+    (unless v
+      (error "Can't find style \"~a\"" name))
+    (cdr v)))
 
 (defun parse-html-content-with-encoding (content format)
   (flet ((parse (format)
@@ -220,26 +250,32 @@ extract the corresponding images into individual files."
                         (xpath:evaluate "//h:img" doc))
     images-map))
 
-(defparameter *source-style* (concatenate 'string
-                                          "border: 1pt solid #000000;"
-                                          "background-color: #fbfbfb;"
-                                          "padding: 5pt;"
-                                          "font-family: monospace;"
-                                          "font-size: 90%;"
-                                          "overflow: auto;"
-                                          "margin-bottom: 1em;"))
-
-(defun update-styles-for-tree (div)
+(defun update-styles-for-tree (doc div styles)
   "Update the style attribute for relevant nodes. Note that the fact that the nodes
 themselves are updated instead of adding a <style> section is intentional. There is
 no way to make sure that other email clients doesn't mess with the styles, causing
 quoted emails to look bad."
-  (xpath:map-node-set #'(lambda (node)
-                          (dom:remove-attribute node "class")
-                          (dom:set-attribute-ns node *html-namespace* "style" *source-style*))
-                      (xpath:evaluate "//h:pre[@class='src']" div)))
 
-(defun quote-email (content old-content tmp-dir &optional (stream *standard-output*))
+  (dom:set-attribute-ns div *html-namespace* "style" (find-css styles "body"))
+
+  (let ((src-style (find-css styles "src")))
+    (xpath:map-node-set #'(lambda (node)
+                            (dom:remove-attribute node "class")
+                            (dom:set-attribute-ns node *html-namespace* "style" src-style)
+                            (let ((parent (dom:parent-node node)))
+                              (dom:remove-child parent node)
+                              (let ((div (dom:create-element-ns doc *html-namespace* "div")))
+                                (dom:set-attribute-ns div *html-namespace* "style" "margin-bottom: 1em;")
+                                (dom:append-child div node)
+                                (dom:append-child parent div))))
+                        (xpath:evaluate "//h:pre[@class='src']" div)))
+
+  (let ((code-style (find-css styles "code")))
+    (xpath:map-node-set #'(lambda (node)
+                            (dom:set-attribute-ns node *html-namespace* "style" code-style))
+                        (xpath:evaluate "//h:code" div))))
+
+(defun quote-email (content old-content tmp-dir styles &optional (stream *standard-output*))
   (with-html-namespaces 
     (let* ((msg (mime4cl:mime-message (pathname old-content)))
            (content-doc (parse-html-content content))
@@ -247,15 +283,13 @@ quoted emails to look bad."
            (old-content-doc (parse-content-as-html old-content-part)))
 
       (let ((div (dom:create-element-ns old-content-doc *html-namespace* "div")))
-        (dom:set-attribute-ns div *html-namespace* "style" "font-family: Helvetica, sans-serif;")
-
         ;; Copy the new content into a div, which will subsequently be inserted into the old document
         (loop
-           for node across (dom:child-nodes (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc)))
+           for node across (copy-seq (dom:child-nodes (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc))))
            do (dom:append-child div (dom:import-node old-content-doc node t)))
 
         ;; Process the div to insert explicit style attributes
-        ;;(update-styles-for-tree div)
+        (update-styles-for-tree old-content-doc div styles)
 
         ;; Insert the div that holds the new content, as well as the divider at the beginning of the old document
         (let ((n (xpath:first-node (xpath:evaluate "/h:html/h:body" old-content-doc)))
@@ -273,17 +307,41 @@ quoted emails to look bad."
 
       (dom:map-document (cxml:make-namespace-normalizer (closure-html:make-character-stream-sink stream)) old-content-doc))))
 
+(defun rewrite-new-email (content styles &optional (stream *standard-output*))
+  (with-html-namespaces
+    (let* ((content-doc (parse-html-content content))
+           (div (dom:create-element-ns content-doc *html-namespace* "div")))
+      ;; Move all the body content into the div
+      (let ((body-node (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc))))
+        (loop
+           for node across (copy-seq (dom:child-nodes body-node))
+           do (progn
+                (dom:remove-child body-node node)
+                (dom:append-child div node)))
+        ;; Update the styles according to preferences
+        (update-styles-for-tree content-doc div styles)
+        ;; Insert the div into the (now empty) body node
+        (dom:append-child body-node div)
+        ;; Since we know there are no inline attachments, just write the end tag
+        (format stream "==END==~%")
+        ;; Output the rest of the document to the output stream
+        (dom:map-document (cxml:make-namespace-normalizer (closure-html:make-character-stream-sink stream)) content-doc)))))
+
 (defun main ()
   (handler-case
       (let ((args #+sbcl (cdr sb-ext:*posix-argv*)
                   #-sbcl (command-line-arguments:get-command-line-arguments)))
-        (unless (= (length args) 3)
-          (error (format nil "Usage: content old-content image-directory (args len=~a: ~s)" (length args) args)))
-        (quote-email (pathname (nth 0 args))
-                     (pathname (nth 1 args))
-                     ;; Append an extra / to make sure the directory name is not
-                     ;; interpreted as a file name
-                     (merge-pathnames (concatenate 'string (nth 2 args) "/"))))
+        (unless (= (length args) 4)
+          (error (format nil "Usage: content old-content image-directory styles-file")))
+        (let ((new-content (pathname (nth 0 args)))
+              (old-content (let ((f (nth 1 args))) (if (string= f "new") nil (pathname f))))
+              ;; Append an extra / to make sure the directory name is not
+              ;; interpreted as a file name
+              (tmp-dir (merge-pathnames (concatenate 'string (nth 2 args) "/")))
+              (styles (parse-styles-file (nth 3 args))))
+          (if old-content
+              (quote-email new-content old-content tmp-dir styles)
+              (rewrite-new-email new-content styles))))
 
     (error (cond)
       (trivial-backtrace:print-condition cond *error-output*)

@@ -14,7 +14,8 @@
                :cl-ppcre
                :cl-fad
                :temporary-file
-               :trivial-shell)
+               :trivial-shell
+               :uiop)
   :serial t
   :components ((:file "package")
                (:file "format")))
