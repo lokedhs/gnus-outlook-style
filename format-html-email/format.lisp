@@ -270,6 +270,19 @@ extract the corresponding images into individual files."
       (dom:insert-before node child (dom:first-child node))
       (dom:append-child node child)))
 
+(defun remove-initial-newline-from-pre (doc node)
+  "If the text content of NODE begins with a newline, then remove it."
+  (loop
+     for n across (copy-seq (dom:child-nodes node))
+     when (dom:text-node-p n)
+     do (progn
+          (let ((text (dom:node-value n)))
+            (when (and (plusp (length text)) (char= (aref text 0) #\Newline))
+              (when (> (length text) 1)
+                (dom:insert-before node (dom:create-text-node doc (subseq text 1)) n))))
+              (dom:remove-child node n)
+          (return))))
+
 (defun update-styles-for-tree (doc div styles)
   "Update the style attribute for relevant nodes. Note that the fact that the nodes
 themselves are updated instead of adding a <style> section is intentional. There is
@@ -295,7 +308,11 @@ quoted emails to look bad."
                               (let ((div (dom:create-element-ns doc *html-namespace* "div")))
                                 (dom:set-attribute-ns div *html-namespace* "style" "margin-bottom: 1em;")
                                 (dom:append-child div node)
-                                (dom:append-child parent div))))
+                                (dom:append-child parent div)))
+                            ;; Because Outlook does not comply with the HTML spec (it uses the IE6 renderer?),
+                            ;; we need to remove the first newline in the <pre> section. Otherwise it
+                            ;; will render an initial newline in the block.
+                            (remove-initial-newline-from-pre doc node))
                         (xpath:evaluate "//h:pre[@class='src']" div)))
 
   (let ((code-style (find-css styles "code")))
