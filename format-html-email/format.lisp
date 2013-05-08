@@ -254,13 +254,37 @@ extract the corresponding images into individual files."
                         (xpath:evaluate "//h:img" doc))
     images-map))
 
+(defun generate-random-class-id ()
+  "Returns a random style class id"
+  (with-output-to-string (s)
+    (format s "email-")
+    (loop
+       repeat 20
+       do (write-char (code-char (+ (random (+ (1+ (- (char-code #\z)
+                                                      (char-code #\a)))))
+                                    (char-code #\a))) s))))
+
+(defun insert-node-first (node child)
+  "Inserts CHILD as the first chile element of NODE."
+  (if (dom:has-child-nodes node)
+      (dom:insert-before node child (dom:first-child node))
+      (dom:append-child node child)))
+
 (defun update-styles-for-tree (doc div styles)
   "Update the style attribute for relevant nodes. Note that the fact that the nodes
 themselves are updated instead of adding a <style> section is intentional. There is
 no way to make sure that other email clients doesn't mess with the styles, causing
 quoted emails to look bad."
 
-  (dom:set-attribute-ns div *html-namespace* "style" (find-css styles "body"))
+  (let ((body-style (find-css styles "body"))
+        (class-id (generate-random-class-id))
+        (head (xpath:first-node (xpath:evaluate "/h:html/h:head" doc)))
+        (style-element (dom:create-element-ns doc *html-namespace* "style")))
+    (dom:set-attribute-ns div *html-namespace* "class" class-id)
+    (dom:append-child style-element (dom:create-text-node doc (with-output-to-string (out)
+                                                                (format out "div.~a { ~a }~%" class-id body-style)
+                                                                (format out "div.~a p { ~a }" class-id body-style))))
+    (dom:append-child head style-element))
 
   (let ((src-style (find-css styles "src")))
     (xpath:map-node-set #'(lambda (node)
@@ -322,10 +346,10 @@ quoted emails to look bad."
            do (progn
                 (dom:remove-child body-node node)
                 (dom:append-child div node)))
-        ;; Update the styles according to preferences
-        (update-styles-for-tree content-doc div styles)
         ;; Insert the div into the (now empty) body node
         (dom:append-child body-node div)
+        ;; Update the styles according to preferences
+        (update-styles-for-tree content-doc div styles)
         ;; Since we know there are no inline attachments, just write the end tag
         (format stream "==END==~%")
         ;; Output the rest of the document to the output stream
@@ -333,19 +357,21 @@ quoted emails to look bad."
 
 (defun main ()
   (handler-case
-      (let ((args #+sbcl (cdr sb-ext:*posix-argv*)
-                  #-sbcl (command-line-arguments:get-command-line-arguments)))
-        (unless (= (length args) 4)
-          (error (format nil "Usage: content old-content image-directory styles-file")))
-        (let ((new-content (pathname (nth 0 args)))
-              (old-content (let ((f (nth 1 args))) (if (string= f "new") nil (pathname f))))
-              ;; Append an extra / to make sure the directory name is not
-              ;; interpreted as a file name
-              (tmp-dir (merge-pathnames (concatenate 'string (nth 2 args) "/")))
-              (styles (parse-styles-file (nth 3 args))))
-          (if old-content
-              (quote-email new-content old-content tmp-dir styles)
-              (rewrite-new-email new-content styles))))
+      (progn
+        (setq *random-state* (make-random-state t))
+        (let ((args #+sbcl (cdr sb-ext:*posix-argv*)
+                    #-sbcl (command-line-arguments:get-command-line-arguments)))
+          (unless (= (length args) 4)
+            (error (format nil "Usage: content old-content image-directory styles-file")))
+          (let ((new-content (pathname (nth 0 args)))
+                (old-content (let ((f (nth 1 args))) (if (string= f "new") nil (pathname f))))
+                ;; Append an extra / to make sure the directory name is not
+                ;; interpreted as a file name
+                (tmp-dir (merge-pathnames (concatenate 'string (nth 2 args) "/")))
+                (styles (parse-styles-file (nth 3 args))))
+            (if old-content
+                (quote-email new-content old-content tmp-dir styles)
+                (rewrite-new-email new-content styles)))))
 
     (error (cond)
       (trivial-backtrace:print-condition cond *error-output*)
