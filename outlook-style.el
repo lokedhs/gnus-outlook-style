@@ -232,7 +232,6 @@ the email has been created."
         finally (return (subseq s 0 (1+ i)))))
 
 (defun outlook-style--call-muse-for-message ()
-  (interactive)
   (save-excursion
     (message-goto-body)
     (when (looking-at (regexp-quote (concat outlook-style-email-muse-format-marker "\n")))
@@ -366,3 +365,5 @@ the email has been created."
 
 (when (fboundp 'mu4e)
   (outlook-style-setup-mu4e))
+
+(provide 'outlook-style)
