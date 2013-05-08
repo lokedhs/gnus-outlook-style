@@ -31,6 +31,16 @@
   :type 'string
   :group 'outlook-style)
 
+(defcustom outlook-style-header-title-css "font-family: Helvetica, sans-serif; font-size: 12; font-weight:bold; vertical-align:top;"
+  "Style for the left column in the quoted email header."
+  :type 'string
+  :group 'outlook-style)
+
+(defcustom outlook-style-header-data-css "font-family: Helvetica, sans-serif; font-size: 12;"
+  "Style for the right column in the quoted email header."
+  :type 'string
+  :group 'outlook-style)
+
 (defvar outlook-style-mail-message-divider "======== END OF MESSAGE ========")
 (defvar outlook-style-email-muse-format-marker "====== Muse format marker ======")
 
@@ -152,6 +162,8 @@ CADR is the source-specific data."
       (print-param "body" outlook-style-body-css)
       (print-param "src" outlook-style-src-css)
       (print-param "code" outlook-style-code-css)
+      (print-param "header-title" outlook-style-header-title-css)
+      (print-param "header-data" outlook-style-header-data-css)
       (write-file file))))
 
 (defun outlook-style--get-next-pair ()
