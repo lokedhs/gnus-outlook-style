@@ -245,8 +245,7 @@ the email has been created."
                                       ((>= length 2)
                                        (outlook-style--generate-quoted-html (car parts)))
                                       (t
-                                       (error "Split failed" length))))
-             (attachments (cadr processed-results)))
+                                       (error "Split failed" length)))))
 
         (destructuring-bind (content attachments files-to-delete) processed-results
           (delete-region (point) (point-max))
@@ -355,11 +354,10 @@ the email has been created."
 (defvar *outlook-style-mu4e-old-compose-func* nil)
 
 (defun outlook-style--mu4e-compose (compose-type &optional original-msg includes)
-  (funcall *outlook-style-mu4e-old-compose-func* compose-type original-msg includes)
+  (mu4e~compose-handler compose-type original-msg includes)
   (outlook-style--gnus-prepare))
 
 (defun outlook-style-setup-mu4e ()
-  (setq *outlook-style-mu4e-old-compose-func* mu4e-compose-func)
   (setq mu4e-compose-func 'outlook-style--mu4e-compose)
   (defadvice mu4e~compose-handler (after mu4e-compose-adafter (compose-type &optional original-msg includes))
     (when (eq compose-type 'new)
