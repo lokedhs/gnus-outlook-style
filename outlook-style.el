@@ -22,12 +22,12 @@
   :group 'outlook-style)
 
 (defcustom outlook-style-src-css "border: 1pt solid #b0b0b0; background-color: #e8e8e8; padding: 5pt; font-family: monospace; font-size: 90%; overflow: auto;"
-  "The style that is applies to code elements."
+  "The style that is applied to src elements."
   :type 'string
   :group 'outlook-style)
 
 (defcustom outlook-style-code-css "background: #e8e8e8; padding-left: 2px; padding-right: 2px;"
-  "The style that is applies to code elements."
+  "The style that is applied to code elements."
   :type 'string
   :group 'outlook-style)
 
