@@ -1,0 +1,19 @@
+This package implements Outlook-style quoting for Gnus and mu4e
+
+There is a significant number of people who wants to use Emacs
+for managing their email but work in organsisations that are using
+Outlook. One major feature (or, misfeature perhaps) is the way
+Outlook handles quoting. It includes the entire email chain at the
+bottom of the mail, with the reply on top. Users of Outlook also
+expects this chain to preserve all HTML formatting as well as any
+inlined images.
+
+This package allows Emacs users to participate in such threads. It
+allows the user to write markup which is processed by Muse, and the
+content is then inserted into the existing HTML, resulting in emails
+blends perfectly into an Outlook thread.
+
+Most of the work is performed by an external program written in
+Common Lisp. Building this program is the most complicated part
+of setting up this package. The section below will explain who
+to do this.
