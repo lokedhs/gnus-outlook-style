@@ -288,7 +288,6 @@ extract the corresponding images into individual files."
 themselves are updated instead of adding a <style> section is intentional. There is
 no way to make sure that other email clients doesn't mess with the styles, causing
 quoted emails to look bad."
-
   (let ((body-style (find-css styles "body"))
         (class-id (generate-random-class-id))
         (head (xpath:first-node (xpath:evaluate "/h:html/h:head" doc)))
