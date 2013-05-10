@@ -203,6 +203,11 @@ CADR is the source-specific data."
           (error "Reached the end of the buffer while processing attachments"))
         (delete-region (point-min) (point))
 
+        ;; Insert a meta tag in the beginning of the document.
+        ;; This is needed to deal with some broken clients (like the iphone mail).
+        (goto-char (point-min))
+        (insert "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
+
         (list (buffer-string)
               (append attachment-list (mapcar #'car images))
               (mapcar #'cadr images))))))
@@ -325,7 +330,8 @@ the value of (point-max) if the marker can't be found."
       (insert "that does not start with " outlook-style-option-prefix " is also ignored.\n\n")
 
       (insert outlook-style-option-prefix " format_muse   Format the email content using Muse markup\n")
-      (insert outlook-style-option-prefix " quote_history Include the previous email chain below the content\n")
+      (when replyp
+        (insert outlook-style-option-prefix " quote_history Include the previous email chain below the content\n"))
       (insert outlook-style-conf-end "\n\n")
 
       (if replyp
