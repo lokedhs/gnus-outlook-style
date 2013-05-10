@@ -203,11 +203,6 @@ CADR is the source-specific data."
           (error "Reached the end of the buffer while processing attachments"))
         (delete-region (point-min) (point))
 
-        ;; Insert a meta tag in the beginning of the document.
-        ;; This is needed to deal with some broken clients (like the iphone mail).
-        (goto-char (point-min))
-        (insert "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n")
-
         (list (buffer-string)
               (append attachment-list (mapcar #'car images))
               (mapcar #'cadr images))))))
