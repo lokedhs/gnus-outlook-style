@@ -41,8 +41,9 @@
   :type 'string
   :group 'outlook-style)
 
-(defvar outlook-style-mail-message-divider "======== END OF MESSAGE ========")
-(defvar outlook-style-email-muse-format-marker "====== Muse format marker ======")
+(defvar outlook-style-conf-start "============ Outlook style settings ============")
+(defvar outlook-style-conf-end "============ End of settings ============")
+(defvar outlook-style-option-prefix "##")
 
 (defun llog (fmt &rest args)
   (with-current-buffer (get-buffer-create "llog")
@@ -231,42 +232,77 @@ the email has been created."
         while (member (aref s i) '(?\n ?\r))
         finally (return (subseq s 0 (1+ i)))))
 
+(defun outlook-style--find-end-of-settings ()
+  "Return the position of the end of the settings-end marker
+the value of (point-max) if the marker can't be found."
+  (save-excursion
+    (if (search-forward-regexp (concat "^" (regexp-quote outlook-style-conf-end) "$") nil t)
+        (point)
+      (point-max))))
+
+(defun outlook-style--mail-body-start-point ()
+  "Return the location where point would go if (message-goto-body) is called."
+  (save-excursion
+    (message-goto-body)
+    (point)))
+
 (defun outlook-style--call-muse-for-message ()
   (save-excursion
     (message-goto-body)
-    (when (looking-at (regexp-quote (concat outlook-style-email-muse-format-marker "\n")))
-      (replace-match "")
-      (let* ((orig-content (buffer-substring (point) (point-max)))
-             (parts (split-string orig-content (concat "^" (regexp-quote outlook-style-mail-message-divider) "$")))
-             (length (length parts))
-             (processed-results (cond ((= length 1)
-                                       (outlook-style--simple-muse-message (car parts)))
-                                      ((>= length 2)
-                                       (outlook-style--generate-quoted-html (car parts)))
-                                      (t
-                                       (error "Split failed" length)))))
+    (when (search-forward-regexp (concat "^" (regexp-quote outlook-style-conf-start) "$"))
+      (forward-line 0)
+      (let ((start-of-settings (point))
+            (end-of-settings (outlook-style--find-end-of-settings)))
+        ;; Skip the config settings marker
+        (forward-line 1)
+        ;; Extract the options from the configuration section
+        (let ((options (loop while (search-forward-regexp (concat "^" (regexp-quote outlook-style-option-prefix)
+                                                                  " *\\([a-zA-Z_-]+\\) +.*$")
+                                                          end-of-settings t)
+                             collect (match-string 1))))
 
-        (destructuring-bind (content attachments files-to-delete) processed-results
-          (delete-region (point) (point-max))
-          (insert "<#multipart type=alternative>\n")
-          (insert (outlook-style--remove-inline-mail-content (car parts)))
-          (when (cdr parts)
-            (insert "\n===============================\n")
-            (dolist (v (cdr parts))
-              (insert (outlook-style--remove-inline-mail-content v) "\n")))
-          (when attachments
-            (insert "<#multipart type=related>\n"))
-          (insert "<#part type=text/html>\n")
-          (insert content "\n")
-          (when attachments
-            (dolist (attachment attachments)
-              (insert attachment "\n"))
-            (insert "<#/multipart>\n"))
-          (insert "<#/multipart>\n")
+          (let ((format-muse (find "format_muse" options :test #'equal))
+                (include-old (find "quote_history" options :test #'equal)))
 
-          ;; If there are files to be deleted, add them to the buffer-local list
-          (when files-to-delete
-            (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete)))))))
+            (let ((new-content (buffer-substring (outlook-style--mail-body-start-point) start-of-settings))
+                  (old-content (buffer-substring end-of-settings (point-max))))
+
+              ;; Check for invalid settings
+              (when (and (not format-muse) include-old)
+                (error "The old email chain can only be included when 'format_muse' is enabled."))
+
+              (if format-muse
+                  (let ((processed-results (if include-old
+                                               ;; The user wants to include the old email chain, "outlook style"
+                                               (outlook-style--generate-quoted-html new-content)
+                                             ;; The old email chain should not be included
+                                             (outlook-style--simple-muse-message new-content))))
+                    (destructuring-bind (content attachments files-to-delete) processed-results
+                      (message-goto-body)
+                      (delete-region (point) (point-max))
+                      (insert "<#multipart type=alternative>\n")
+                      (insert (outlook-style--remove-inline-mail-content new-content))
+                      (when (plusp (length old-content))
+                        (insert "\n===============================\n")
+                        (insert (outlook-style--remove-inline-mail-content old-content) "\n"))
+                      (when attachments
+                        (insert "<#multipart type=related>\n"))
+                      (insert "<#part type=text/html>\n")
+                      (insert content "\n")
+                      (when attachments
+                        (dolist (attachment attachments)
+                          (insert attachment "\n"))
+                        (insert "<#/multipart>\n"))
+                      (insert "<#/multipart>\n")
+
+                      ;; If there are files to be deleted, add them to the buffer-local list
+                      (when files-to-delete
+                        (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete))))
+                
+                ;; The user does not want to use muse, so simply
+                ;; delete the configuration section from the buffer
+                ;; and fall back to the default mailing style
+                (delete-region start-of-settings end-of-settings)))))))))
 
 (defun outlook-style--gnus-prepare ()
   (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
@@ -275,14 +311,27 @@ the email has been created."
                     (cond ((= (point) (point-max))
                            nil)
                           (t
-                           (insert "\n\n" outlook-style-mail-message-divider "\n")
                            (replace-regexp "^> ?\\(.*\\)$" "\\1" nil (point) (point-max))
                            t)))))
+
       (message-goto-body)
-      (insert outlook-style-email-muse-format-marker "\n")
+      (insert "\n\n" outlook-style-conf-start "\n")
+
+      (insert "This mail buffer is configured to use the outlook-style package. Lines\n")
+      (insert "below beginning with " outlook-style-option-prefix " indicates enabled options.\n")
+
+      (insert "The name of the option follows immediately after the option prefix.\n")
+      (insert "Any wors after the option names are ignored. Any line in this block\n")
+      (insert "that does not start with " outlook-style-option-prefix " is also ignored.\n\n")
+
+      (insert outlook-style-option-prefix " format_muse   Format the email content using Muse markup\n")
+      (insert outlook-style-option-prefix " quote_history Include the previous email chain below the content\n")
+      (insert outlook-style-conf-end "\n\n")
 
       (if replyp
-          (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
+          (progn
+            (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
+            (message-goto-body))
         (message-goto-to)))))
 
 (defun outlook-style--cleanup-temporary-attachments ()
@@ -293,58 +342,6 @@ the email has been created."
 (add-hook 'gnus-message-setup-hook 'outlook-style--gnus-prepare)
 (add-hook 'message-send-hook 'outlook-style--call-muse-for-message)
 (add-hook 'message-sent-hook 'outlook-style--cleanup-temporary-attachments)
-
-;;;
-;;;  Editor
-;;;
-
-(defun outlook-style--find-muse-message-boundaries ()
-  (save-excursion
-    (search-forward (regexp-quote (concat outlook-style-email-muse-format-marker "\n")) nil t)
-    (let ((start (point))
-          (end (if (search-forward (regexp-quote outlook-style-mail-message-divider) nil t)
-                   (- (point) (length outlook-style-mail-message-divider))
-                 (point-max))))
-      (list start end))))
-
-(defun outlook-style-save-muse-mode-buffer ()
-  (interactive)
-  (unless (boundp 'local-muse-mode-mail-buffer)
-    (error "Not in local muse edit mode"))
-  (let ((content (buffer-string))
-        (buffer (current-buffer)))
-    (switch-to-buffer local-muse-mode-mail-buffer)
-    (let ((boundaries (outlook-style--find-muse-message-boundaries)))
-      (unless boundaries
-        (error "Unable to find message boundaries"))
-      (delete-region (car boundaries) (cadr boundaries))
-      (goto-char (car boundaries))
-      (insert content)
-      (goto-char (car boundaries))
-      (kill-buffer buffer))))
-
-(defun edit-mail-in-muse-mode ()
-  (interactive)
-  (message-goto-body)
-  (let ((boundaries (outlook-style--find-muse-message-boundaries)))
-    (if boundaries
-        (let* ((mail-buffer (current-buffer))
-               (content (buffer-substring (car boundaries) (cadr boundaries)))
-               (buffer (if (boundp 'local-muse-buffer)
-                           local-muse-buffer
-                         (set (make-local-variable 'local-muse-buffer)
-                              (generate-new-buffer "*Muse Edit Mail*")))))
-          (switch-to-buffer buffer)
-          (insert content)
-          (goto-char (point-min))
-          (muse-mode)
-          (local-set-key (kbd "C-c C-c") 'outlook-style-save-muse-mode-buffer)
-          (set (make-local-variable 'local-muse-mode-mail-buffer) mail-buffer))
-      (message "Muse format marker not found"))))
-
-(add-hook 'gnus-message-setup-hook
-          (lambda ()
-            (local-set-key (kbd "C-c C-e") 'edit-mail-in-muse-mode)))
 
 ;;;
 ;;;  Setup for mu4e
@@ -365,5 +362,7 @@ the email has been created."
 
 (when (fboundp 'mu4e)
   (outlook-style-setup-mu4e))
+
+(require 'outlook-style-muse-editor)
 
 (provide 'outlook-style)
