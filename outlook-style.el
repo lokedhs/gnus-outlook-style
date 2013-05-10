@@ -347,8 +347,6 @@ the value of (point-max) if the marker can't be found."
 ;;;  Setup for mu4e
 ;;;
 
-(defvar *outlook-style-mu4e-old-compose-func* nil)
-
 (defun outlook-style--mu4e-compose (compose-type &optional original-msg includes)
   (mu4e~compose-handler compose-type original-msg includes)
   (outlook-style--gnus-prepare))
