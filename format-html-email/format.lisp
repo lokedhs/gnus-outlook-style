@@ -303,11 +303,11 @@ quoted emails to look bad."
                             (dom:remove-attribute node "class")
                             (dom:set-attribute-ns node *html-namespace* "style" src-style)
                             (let ((parent (dom:parent-node node)))
-                              (dom:remove-child parent node)
                               (let ((div (dom:create-element-ns doc *html-namespace* "div")))
+                                (dom:insert-before parent div node)
+                                (dom:remove-child parent node)
                                 (dom:set-attribute-ns div *html-namespace* "style" "margin-bottom: 1em;")
-                                (dom:append-child div node)
-                                (dom:append-child parent div)))
+                                (dom:append-child div node)))
                             ;; Because Outlook does not comply with the HTML spec (it uses the IE6 renderer?),
                             ;; we need to remove the first newline in the <pre> section. Otherwise it
                             ;; will render an initial newline in the block.
