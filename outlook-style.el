@@ -321,7 +321,7 @@ the value of (point-max) if the marker can't be found."
       (insert "below beginning with " outlook-style-option-prefix " indicates enabled options.\n")
 
       (insert "The name of the option follows immediately after the option prefix.\n")
-      (insert "Any wors after the option names are ignored. Any line in this block\n")
+      (insert "Any words after the option names are ignored. Any line in this block\n")
       (insert "that does not start with " outlook-style-option-prefix " is also ignored.\n\n")
 
       (insert outlook-style-option-prefix " format_muse   Format the email content using Muse markup\n")
