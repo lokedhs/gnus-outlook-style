@@ -236,7 +236,7 @@ when there are lots of attachments."
 file in TMP-DIR and return the pathname of the file."
   (let* ((*default-pathname-defaults* tmp-dir)
          (ext (find-extension (mime4cl:mime-part-file-name part)))
-         (template (format nil "html-format-attachment-tmp%~a" (or ext ""))))
+         (template (format nil "html-format-attachment-tmp%~a" (if ext (concatenate 'string "." ext) ""))))
     (temporary-file:with-open-temporary-file (s :keep t :template template :element-type '(unsigned-byte 8))
       (mime4cl:with-input-from-mime-body-stream (in part)
         (cl-fad:copy-stream in s))
