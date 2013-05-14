@@ -15,5 +15,5 @@ blends perfectly into an Outlook thread.
 
 Most of the work is performed by an external program written in
 Common Lisp. Building this program is the most complicated part
-of setting up this package. The section below will explain who
+of setting up this package. The section below will explain how
 to do this.
