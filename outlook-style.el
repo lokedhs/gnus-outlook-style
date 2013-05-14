@@ -141,8 +141,7 @@ CADR is the source-specific data."
   (ecase (car reference)
     (mu (destructuring-bind (&key path &allow-other-keys) (cadr reference)
           (copy-file path file t)))
-    (gnus-m (let ((l (cadr reference))
-                  (file (make-temp-file "email-old")))
+    (gnus-m (let ((l (cadr reference)))
               (with-temp-buffer
                 (gnus-request-article (car l) (cadr l) (current-buffer))
                 (write-file file))))))
