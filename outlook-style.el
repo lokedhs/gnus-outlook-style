@@ -177,7 +177,7 @@ CADR is the source-specific data."
     (let* ((id (line-content))
            (type (line-content))
            (file (line-content)))
-      (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\">\n<#/part>"
+      (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\" disposition=inline>\n<#/part>"
                     type id id file id)
             file))))
 
