@@ -225,11 +225,19 @@ when there are lots of attachments."
                        part)
     h))
 
+(defun find-extension (name)
+  (let ((index (position #\. name :from-end t)))
+    (if index
+        (subseq name (1+ index))
+        nil)))
+
 (defun copy-attachment-to-file (part tmp-dir)
   "Write the content of attachment PART into a newly created
 file in TMP-DIR and return the pathname of the file."
-  (let ((*default-pathname-defaults* tmp-dir))
-    (temporary-file:with-open-temporary-file (s :keep t :template "html-format-attachment-tmp%" :element-type '(unsigned-byte 8))
+  (let* ((*default-pathname-defaults* tmp-dir)
+         (ext (find-extension (mime4cl:mime-part-file-name part)))
+         (template (format nil "html-format-attachment-tmp%~a" (or ext ""))))
+    (temporary-file:with-open-temporary-file (s :keep t :template template :element-type '(unsigned-byte 8))
       (mime4cl:with-input-from-mime-body-stream (in part)
         (cl-fad:copy-stream in s))
       (pathname s))))
