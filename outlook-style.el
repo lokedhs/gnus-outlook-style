@@ -11,34 +11,46 @@
 
 (defgroup outlook-style nil "Customisation for outlook-style" :prefix 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-format-helper-location "format_quoted_mail"
   "The program used to merge the HTML content."
   :type 'string
   :group 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-body-css "font-family: Helvetica, sans-serif; font-size: 12;"
   "The style applied to the body element of the generated HTML."
   :type 'string
   :group 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-src-css "border: 1pt solid #b0b0b0; background-color: #e8e8e8; padding: 5pt; font-family: monospace; font-size: 90%; overflow: auto;"
   "The style that is applied to src elements."
   :type 'string
   :group 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-code-css "background: #e8e8e8; padding-left: 2px; padding-right: 2px;"
   "The style that is applied to code elements."
   :type 'string
   :group 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-header-title-css "font-family: Helvetica, sans-serif; font-size: 12; font-weight:bold; vertical-align:top;"
   "Style for the left column in the quoted email header."
   :type 'string
   :group 'outlook-style)
 
+;;;###autoload
 (defcustom outlook-style-header-data-css "font-family: Helvetica, sans-serif; font-size: 12;"
   "Style for the right column in the quoted email header."
   :type 'string
+  :group 'outlook-style)
+
+;;;###autoload
+(defcustom outlook-style-init-hook nil
+  "Hook that is called after the buffer has been set up for outlook-style editing."
+  :type 'hook
   :group 'outlook-style)
 
 (defvar outlook-style-conf-start "============ Outlook style settings ============")
@@ -332,7 +344,8 @@ the value of (point-max) if the marker can't be found."
           (progn
             (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
             (message-goto-body))
-        (message-goto-to)))))
+        (message-goto-to))))
+  (run-hooks 'outlook-style-init-hook))
 
 (defun outlook-style--cleanup-temporary-attachments ()
   (when (boundp 'outlook-style-local-temporary-files)
