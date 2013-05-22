@@ -106,13 +106,14 @@ and remove the occurrences."
 (defun outlook-style--remove-and-get-inline-mail-content (text)
   "Remove inline attachment specifications. This function returns
 a list where the first element consists of the resulting email
-without attachments, and the second element being a list of the
-extracted attachment specifications."
+without attachments, the second element being a list of the
+extracted attachment specifications and the third element is a
+list of tags that should go outside the multipart section."
   (with-temp-buffer
     (insert text)
-    (let ((attachments (append (outlook-style--collect-and-remove "<#part [^>]*disposition=attachment[^>]*>\\(.\\|\n\\)*<#/part>")
-                               (outlook-style--collect-and-remove "<#secure[^>]*>"))))
-      (list (buffer-string) attachments))))
+    (let ((attachments (outlook-style--collect-and-remove "<#part [^>]*disposition=attachment[^>]*>\\(.\\|\n\\)*<#/part>"))
+          (rem (outlook-style--collect-and-remove "<#secure[^>]*>")))
+      (list (buffer-string) attachments rem))))
 
 (defun outlook-style--publish-and-update-tags ()
   "Convert the markup in the current buffer to HTML"
@@ -200,7 +201,7 @@ CADR is the source-specific data."
                     type id id file id)
             file))))
 
-(defun outlook-style--call-email-format (new-message old-message attachment-list)
+(defun outlook-style--call-email-format (new-message old-message attachment-list remaining-sections)
   (with-temp-files ((styles-filename "styles"))
     (outlook-style--write-styles-settings styles-filename)
 
@@ -223,6 +224,7 @@ CADR is the source-specific data."
 
         (list (buffer-string)
               (append attachment-list (mapcar #'car images))
+              remaining-sections
               (mapcar #'cadr images))))))
 
 (defun outlook-style--generate-quoted-html (new-content)
@@ -237,13 +239,15 @@ the email has been created."
                         (old-message "email-old"))
         (outlook-style--process-source-email (car processed-results) new-message)
         (outlook-style--get-email ref old-message)
-        (outlook-style--call-email-format new-message old-message (cadr processed-results))))))
+        (outlook-style--call-email-format new-message old-message
+                                          (cadr processed-results) (caddr processed-results))))))
 
 (defun outlook-style--simple-muse-message (content)
   (let ((processed-results (outlook-style--remove-and-get-inline-mail-content content)))
     (with-temp-files ((file "email-new"))
       (outlook-style--process-source-email (car processed-results) file)
-      (outlook-style--call-email-format file "new" (cadr processed-results)))))
+      (outlook-style--call-email-format file "new"
+                                        (cadr processed-results) (caddr processed-results)))))
 
 (defun outlook-style--remove-trailing-newlines (s)
   (loop for i from (1- (length s)) downto 0
@@ -293,7 +297,7 @@ the value of (point-max) if the marker can't be found."
                                            (outlook-style--generate-quoted-html new-content)
                                          ;; The old email chain should not be included
                                          (outlook-style--simple-muse-message new-content))))
-                (destructuring-bind (content attachments files-to-delete) processed-results
+                (destructuring-bind (content attachments remaining-sections files-to-delete) processed-results
                   (message-goto-body)
                   (delete-region (point) (point-max))
                   (insert "<#multipart type=alternative>\n")
@@ -310,6 +314,9 @@ the value of (point-max) if the marker can't be found."
                       (insert attachment "\n"))
                     (insert "<#/multipart>\n"))
                   (insert "<#/multipart>\n")
+                  ;; Insert the remaining sections at the end of the email
+                  (dolist (sec remaining-sections)
+                    (insert sec "\n"))
 
                   ;; If there are files to be deleted, add them to the buffer-local list
                   (when files-to-delete
