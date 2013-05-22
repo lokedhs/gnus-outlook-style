@@ -94,6 +94,15 @@
         (delete-region begin (point))))
     (buffer-string)))
 
+(defun outlook-style--collect-and-remove (pattern)
+  "Return a list of all strings matching `pattern' in the current buffer,
+and remove the occurrences."
+  (save-excursion
+    (goto-char (point-min))
+    (loop while (search-forward-regexp pattern nil t)
+          collect (match-string 0)
+          do (replace-match ""))))
+
 (defun outlook-style--remove-and-get-inline-mail-content (text)
   "Remove inline attachment specifications. This function returns
 a list where the first element consists of the resulting email
@@ -101,11 +110,9 @@ without attachments, and the second element being a list of the
 extracted attachment specifications."
   (with-temp-buffer
     (insert text)
-    (goto-char (point-min))
-    (loop while (search-forward-regexp "<#part [^>]*disposition=attachment[^>]*>\\(.\\|\n\\)*<#/part>" nil t)
-          collect (match-string 0) into attachments
-          do (replace-match "")
-          finally (return (list (buffer-string) attachments)))))
+    (let ((attachments (append (outlook-style--collect-and-remove "<#part [^>]*disposition=attachment[^>]*>\\(.\\|\n\\)*<#/part>")
+                               (outlook-style--collect-and-remove "<#secure[^>]*>"))))
+      (list (buffer-string) attachments))))
 
 (defun outlook-style--publish-and-update-tags ()
   "Convert the markup in the current buffer to HTML"
@@ -260,92 +267,90 @@ the value of (point-max) if the marker can't be found."
 (defun outlook-style--call-muse-for-message ()
   (save-excursion
     (message-goto-body)
-    (when (search-forward-regexp (concat "^" (regexp-quote outlook-style-conf-start) "$"))
+    (when (search-forward-regexp (concat "^" (regexp-quote outlook-style-conf-start) "$") nil t)
       (forward-line 0)
       (let ((start-of-settings (point))
             (end-of-settings (outlook-style--find-end-of-settings)))
         ;; Skip the config settings marker
         (forward-line 1)
         ;; Extract the options from the configuration section
-        (let ((options (loop while (search-forward-regexp (concat "^" (regexp-quote outlook-style-option-prefix)
-                                                                  " *\\([a-zA-Z_-]+\\) +.*$")
-                                                          end-of-settings t)
-                             collect (match-string 1))))
+        (let* ((options (loop while (search-forward-regexp (concat "^" (regexp-quote outlook-style-option-prefix)
+                                                                   " *\\([a-zA-Z_-]+\\) +.*$")
+                                                           end-of-settings t)
+                              collect (match-string 1)))
+               (format-muse (find "format_muse" options :test #'equal))
+               (include-old (find "quote_history" options :test #'equal))
+               (new-content (buffer-substring (outlook-style--mail-body-start-point) start-of-settings))
+               (old-content (buffer-substring end-of-settings (point-max))))
 
-          (let ((format-muse (find "format_muse" options :test #'equal))
-                (include-old (find "quote_history" options :test #'equal)))
+          ;; Check for invalid settings
+          (when (and (not format-muse) include-old)
+            (error "The old email chain can only be included when 'format_muse' is enabled."))
 
-            (let ((new-content (buffer-substring (outlook-style--mail-body-start-point) start-of-settings))
-                  (old-content (buffer-substring end-of-settings (point-max))))
+          (if format-muse
+              (let ((processed-results (if include-old
+                                           ;; The user wants to include the old email chain, "outlook style"
+                                           (outlook-style--generate-quoted-html new-content)
+                                         ;; The old email chain should not be included
+                                         (outlook-style--simple-muse-message new-content))))
+                (destructuring-bind (content attachments files-to-delete) processed-results
+                  (message-goto-body)
+                  (delete-region (point) (point-max))
+                  (insert "<#multipart type=alternative>\n")
+                  (insert (outlook-style--remove-inline-mail-content new-content))
+                  (when (plusp (length old-content))
+                    (insert "\n===============================\n")
+                    (insert (outlook-style--remove-inline-mail-content old-content) "\n"))
+                  (when attachments
+                    (insert "<#multipart type=related>\n"))
+                  (insert "<#part type=text/html>\n")
+                  (insert content "\n")
+                  (when attachments
+                    (dolist (attachment attachments)
+                      (insert attachment "\n"))
+                    (insert "<#/multipart>\n"))
+                  (insert "<#/multipart>\n")
 
-              ;; Check for invalid settings
-              (when (and (not format-muse) include-old)
-                (error "The old email chain can only be included when 'format_muse' is enabled."))
+                  ;; If there are files to be deleted, add them to the buffer-local list
+                  (when files-to-delete
+                    (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete))))
+            
+            ;; The user does not want to use muse, so simply
+            ;; delete the configuration section from the buffer
+            ;; and fall back to the default mailing style
+            (delete-region start-of-settings end-of-settings)))))
 
-              (if format-muse
-                  (let ((processed-results (if include-old
-                                               ;; The user wants to include the old email chain, "outlook style"
-                                               (outlook-style--generate-quoted-html new-content)
-                                             ;; The old email chain should not be included
-                                             (outlook-style--simple-muse-message new-content))))
-                    (destructuring-bind (content attachments files-to-delete) processed-results
-                      (message-goto-body)
-                      (delete-region (point) (point-max))
-                      (insert "<#multipart type=alternative>\n")
-                      (insert (outlook-style--remove-inline-mail-content new-content))
-                      (when (plusp (length old-content))
-                        (insert "\n===============================\n")
-                        (insert (outlook-style--remove-inline-mail-content old-content) "\n"))
-                      (when attachments
-                        (insert "<#multipart type=related>\n"))
-                      (insert "<#part type=text/html>\n")
-                      (insert content "\n")
-                      (when attachments
-                        (dolist (attachment attachments)
-                          (insert attachment "\n"))
-                        (insert "<#/multipart>\n"))
-                      (insert "<#/multipart>\n")
+    (defun outlook-style--gnus-prepare ()
+      (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
+        (let ((replyp (save-excursion
+                        (message-goto-body)
+                        (cond ((= (point) (point-max))
+                               nil)
+                              (t
+                               (replace-regexp "^> ?\\(.*\\)$" "\\1" nil (point) (point-max))
+                               t)))))
 
-                      ;; If there are files to be deleted, add them to the buffer-local list
-                      (when files-to-delete
-                        (set (make-local-variable 'outlook-style-local-temporary-files) files-to-delete))))
-                
-                ;; The user does not want to use muse, so simply
-                ;; delete the configuration section from the buffer
-                ;; and fall back to the default mailing style
-                (delete-region start-of-settings end-of-settings)))))))))
+          (message-goto-body)
+          (insert "\n\n" outlook-style-conf-start "\n")
 
-(defun outlook-style--gnus-prepare ()
-  (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
-    (let ((replyp (save-excursion
-                    (message-goto-body)
-                    (cond ((= (point) (point-max))
-                           nil)
-                          (t
-                           (replace-regexp "^> ?\\(.*\\)$" "\\1" nil (point) (point-max))
-                           t)))))
+          (insert "This mail buffer is configured to use the outlook-style package. Lines\n")
+          (insert "below beginning with " outlook-style-option-prefix " indicates enabled options.\n")
 
-      (message-goto-body)
-      (insert "\n\n" outlook-style-conf-start "\n")
+          (insert "The name of the option follows immediately after the option prefix.\n")
+          (insert "Any words after the option names are ignored. Any line in this block\n")
+          (insert "that does not start with " outlook-style-option-prefix " is also ignored.\n\n")
 
-      (insert "This mail buffer is configured to use the outlook-style package. Lines\n")
-      (insert "below beginning with " outlook-style-option-prefix " indicates enabled options.\n")
+          (insert outlook-style-option-prefix " format_muse   Format the email content using Muse markup\n")
+          (when replyp
+            (insert outlook-style-option-prefix " quote_history Include the previous email chain below the content\n"))
+          (insert outlook-style-conf-end "\n\n")
 
-      (insert "The name of the option follows immediately after the option prefix.\n")
-      (insert "Any words after the option names are ignored. Any line in this block\n")
-      (insert "that does not start with " outlook-style-option-prefix " is also ignored.\n\n")
-
-      (insert outlook-style-option-prefix " format_muse   Format the email content using Muse markup\n")
-      (when replyp
-        (insert outlook-style-option-prefix " quote_history Include the previous email chain below the content\n"))
-      (insert outlook-style-conf-end "\n\n")
-
-      (if replyp
-          (progn
-            (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
-            (message-goto-body))
-        (message-goto-to))))
-  (run-hooks 'outlook-style-init-hook))
+          (if replyp
+              (progn
+                (set (make-local-variable 'outlook-style-local-yank) (outlook-style--get-parent-reference))
+                (message-goto-body))
+            (message-goto-to))))
+      (run-hooks 'outlook-style-init-hook))))
 
 (defun outlook-style--cleanup-temporary-attachments ()
   (when (boundp 'outlook-style-local-temporary-files)
