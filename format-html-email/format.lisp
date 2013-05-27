@@ -268,8 +268,8 @@ extract the corresponding images into individual files."
     (format s "email-")
     (loop
        repeat 20
-       do (write-char (code-char (+ (random (+ (1+ (- (char-code #\z)
-                                                      (char-code #\a)))))
+       do (write-char (code-char (+ (random (1+ (- (char-code #\z)
+                                                   (char-code #\a))))
                                     (char-code #\a))) s))))
 
 (defun insert-node-first (node child)
