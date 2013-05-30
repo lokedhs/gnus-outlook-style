@@ -143,15 +143,10 @@ CADR is the source-specific data."
   (cond ((and (fboundp 'mu4e) (boundp 'mu4e-compose-parent-message) mu4e-compose-parent-message)
          (list 'mu mu4e-compose-parent-message))
 
-        ((boundp 'yank)
-         (let ((id gnus-message-group-art)
-               (message (let ((v (car yank)))
-                          (etypecase v
-                            (number v)
-                            (list (car v))))))
-           (unless (or id message)
-             (error (format ("failed to find yank: %s" yank))))
-           (list 'gnus-m (list message (car id)))))
+        ((not (null outlook-style-gnus-article-current-copy))
+         (let ((id (cdr outlook-style-gnus-article-current-copy))
+               (message (car outlook-style-gnus-article-current-copy)))
+           (list 'gnus-m (list id message))))
 
         (t
          (error "Unable to find parent reference"))))
@@ -373,6 +368,19 @@ the value of (point-max) if the marker can't be found."
 (add-hook 'gnus-message-setup-hook 'outlook-style--gnus-prepare)
 (add-hook 'message-send-hook 'outlook-style--call-muse-for-message)
 (add-hook 'message-sent-hook 'outlook-style--cleanup-temporary-attachments)
+
+(defvar outlook-style-gnus-article-current-copy nil)
+
+(defmacro outlook-style--init-advice-followup-fun (name)
+  (let ((advice-sym (intern (concat "outlook-style-" (symbol-name name)))))
+    `(progn
+       (defadvice ,name (around ,advice-sym)
+         (let ((outlook-style-gnus-article-current-copy gnus-article-current))
+           ad-do-it))
+       (ad-activate ',name))))
+
+(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
+(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
 
 ;;;
 ;;;  Setup for mu4e
