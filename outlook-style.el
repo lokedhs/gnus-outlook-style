@@ -379,8 +379,14 @@ the value of (point-max) if the marker can't be found."
            ad-do-it))
        (ad-activate ',name))))
 
-(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
-(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
+(defadvice gnus-article-followup-with-original (around outlook-style-gnus-article-followup-with-original)
+  (let ((outlook-style-gnus-article-current-copy gnus-article-current))
+    ad-do-it))
+
+(ad-activate 'gnus-article-followup-with-original)
+
+;(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
+;(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
 
 ;;;
 ;;;  Setup for mu4e
