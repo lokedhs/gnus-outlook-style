@@ -371,22 +371,64 @@ the value of (point-max) if the marker can't be found."
 
 (defvar outlook-style-gnus-article-current-copy nil)
 
-(defmacro outlook-style--init-advice-followup-fun (name)
-  (let ((advice-sym (intern (concat "outlook-style-" (symbol-name name)))))
-    `(progn
-       (defadvice ,name (around ,advice-sym)
-         (let ((outlook-style-gnus-article-current-copy gnus-article-current))
-           ad-do-it))
-       (ad-activate ',name))))
+;; (defmacro outlook-style--init-advice-followup-fun (name)
+;;   (let ((advice-sym (intern (concat "outlook-style-" (symbol-name name)))))
+;;     `(progn
+;;        (defadvice ,name (around ,advice-sym)
+;;          (let ((outlook-style-gnus-article-current-copy gnus-article-current))
+;;            ad-do-it))
+;;        (ad-activate ',name))))
 
-(defadvice gnus-article-followup-with-original (around outlook-style-gnus-article-followup-with-original)
-  (let ((outlook-style-gnus-article-current-copy gnus-article-current))
-    ad-do-it))
+;;;;;;;;
 
-(ad-activate 'gnus-article-followup-with-original)
+;; (defadvice gnus-article-followup-with-original (around outlook-style-gnus-article-followup-with-original)
+;;   (let ((outlook-style-gnus-article-current-copy gnus-article-current))
+;;     ad-do-it))
 
-;(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
-;(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
+;; (ad-activate 'gnus-article-followup-with-original)
+
+;; (defadvice gnus-summary-followup-with-original (around outlook-style-summary-followup)
+;;   (let ((orig (car (gnus-summary-work-articles 1))))
+;;     (unless (and (listp orig) (= (length orig) 1))
+;;       (error (format "Original mail reference has illgeal format: %s" orig)))
+;;     (let ((outlook-style-gnus-article-current-copy (car orig)))
+;;       ad-do-it)))
+
+;; (ad-activate 'gnus-summary-followup-with-original)
+
+;;;;;;;;;;;;;;
+
+(defadvice gnus-post-news (around outlook-style-post
+                                  (post &optional
+                                        group header article-buffer yank subject force-news))
+  (when (> (length yank) 1)
+    (error "More than one message selected for reply"))
+  (let ((message (car yank)))
+    ;; This stuff is a bit of a mess. In this function, the variable `yank' is
+    ;; a list of elements that can have any of the following values:
+    ;;
+    ;;   nil:  No quoting should be done
+    ;;   atom: The value is a message index (id of a message in a given group)
+    ;;   list: Multiple messages as above
+    ;;   list of list: Multiple messages, where the car is the index and the cdr is
+    ;;                 the part of the message that should be quoted
+    (let ((outlook-style-gnus-article-current-copy
+           (cond ((null message)
+                  nil)
+                 ((listp message)
+                  (if (null (cdr message))
+                      (cons group (car message))
+                    nil))
+                 ((numberp message)
+                  message)
+                 (t
+                  "Error outlook-style was not prepared to handle a yank of value: %s" yank))))
+      ad-do-it)))
+
+(ad-activate 'gnus-post-news)
+
+;;(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
+;;(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
 
 ;;;
 ;;;  Setup for mu4e
