@@ -371,33 +371,6 @@ the value of (point-max) if the marker can't be found."
 
 (defvar outlook-style-gnus-article-current-copy nil)
 
-;; (defmacro outlook-style--init-advice-followup-fun (name)
-;;   (let ((advice-sym (intern (concat "outlook-style-" (symbol-name name)))))
-;;     `(progn
-;;        (defadvice ,name (around ,advice-sym)
-;;          (let ((outlook-style-gnus-article-current-copy gnus-article-current))
-;;            ad-do-it))
-;;        (ad-activate ',name))))
-
-;;;;;;;;
-
-;; (defadvice gnus-article-followup-with-original (around outlook-style-gnus-article-followup-with-original)
-;;   (let ((outlook-style-gnus-article-current-copy gnus-article-current))
-;;     ad-do-it))
-
-;; (ad-activate 'gnus-article-followup-with-original)
-
-;; (defadvice gnus-summary-followup-with-original (around outlook-style-summary-followup)
-;;   (let ((orig (car (gnus-summary-work-articles 1))))
-;;     (unless (and (listp orig) (= (length orig) 1))
-;;       (error (format "Original mail reference has illgeal format: %s" orig)))
-;;     (let ((outlook-style-gnus-article-current-copy (car orig)))
-;;       ad-do-it)))
-
-;; (ad-activate 'gnus-summary-followup-with-original)
-
-;;;;;;;;;;;;;;
-
 (defadvice gnus-post-news (around outlook-style-post
                                   (post &optional
                                         group header article-buffer yank subject force-news))
@@ -420,15 +393,12 @@ the value of (point-max) if the marker can't be found."
                       (cons group (car message))
                     nil))
                  ((numberp message)
-                  message)
+                  (cons group message))
                  (t
                   "Error outlook-style was not prepared to handle a yank of value: %s" yank))))
       ad-do-it)))
 
 (ad-activate 'gnus-post-news)
-
-;;(outlook-style--init-advice-followup-fun gnus-article-followup-with-original)
-;;(outlook-style--init-advice-followup-fun gnus-summary-followup-with-original)
 
 ;;;
 ;;;  Setup for mu4e
