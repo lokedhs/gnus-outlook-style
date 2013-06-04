@@ -122,7 +122,7 @@ can't be parsed."
   (defparameter *src* from-vector)
   (let ((result (iconv:iconv from-code :utf-32be from-vector)))
     (unless (zerop (mod (length result) 4))
-      (error 'iconv-error :format-control "UTF-32BE output length is not divisible by 4: ~a" (length result)))
+      (error "UTF-32BE output length is not divisible by 4: ~a" (length result)))
     (with-output-to-string (out)
       (dotimes (i (/ (length result) 4))
         (write-char (code-char (logior (ash (aref result (* i 4)) 24)
