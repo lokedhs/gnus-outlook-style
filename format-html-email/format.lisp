@@ -118,24 +118,42 @@ can't be parsed."
         (when match
           (find-charset-from-content-type (aref strings 2))))))
 
-(defun parse-html-handle-encoding (stream)
+(defun iconv-to-string (from-code from-vector)
+  (defparameter *src* from-vector)
+  (let ((result (iconv:iconv from-code :utf-32be from-vector)))
+    (unless (zerop (mod (length result) 4))
+      (error 'iconv-error :format-control "UTF-32BE output length is not divisible by 4: ~a" (length result)))
+    (with-output-to-string (out)
+      (dotimes (i (/ (length result) 4))
+        (write-char (code-char (logior (ash (aref result (* i 4)) 24)
+                                       (ash (aref result (+ (* i 4) 1)) 16)
+                                       (ash (aref result (+ (* i 4) 2)) 8)
+                                       (aref result (+ (* i 4) 3))))
+                    out)))))
+
+(defun parse-html-handle-encoding (stream preferred-encoding)
   "Read STREAM and parse it as HTML, returning the corresponding DOM tree.
 This function differs from CLOSURE-HTML:PARSE in that it takes the
-<meta content> tags into consideration."
-  (let* ((content-buffer (read-stream-to-byte-array stream))
-         (string (plain-parse-bytes-to-string content-buffer)))
-    ;; Now we have a string consisting of just the BASIC LATIN characters from the input
-    (let ((encoding (find-encoding-from-content-type string)))
-      (if encoding
-          ;; We found an encoding, now check if it's valid
-          (let ((fmt (external-format-from-name encoding)))
-            (if fmt
-                ;; We're good, we found a format
-                (parse-html-content-with-encoding content-buffer fmt)
-                ;; No format. We could parse the ASCII here, but right now it's best to simply bail
-                (error "Unknown content type: ~s" encoding)))
-          ;; No encoding found in the document, simply parse the buffer using default encoding
-          (parse-html-content-with-encoding content-buffer :utf-8)))))
+<meta content> tags into consideration. PREFERRED-ENCODING is the
+encoding to try to use first, before looking at any other encodings."
+  (let ((content-buffer (read-stream-to-byte-array stream)))
+    (if preferred-encoding
+        ;; If we have a preferred encoding, just use it
+        (parse-html-content (iconv-to-string preferred-encoding content-buffer))
+        ;; Otherwise, look at the meta tags in the html
+        (let ((string (plain-parse-bytes-to-string content-buffer)))
+          ;; Now we have a string consisting of just the BASIC LATIN characters from the input
+          (let ((encoding (find-encoding-from-content-type string)))
+            (if encoding
+                ;; We found an encoding, now check if it's valid
+                (let ((fmt (external-format-from-name encoding)))
+                  (if fmt
+                      ;; We're good, we found a format
+                      (parse-html-content-with-encoding content-buffer fmt)
+                      ;; No format. We could parse the ASCII here, but right now it's best to simply bail
+                      (error "Unknown content type: ~s" encoding)))
+                ;; No encoding found in the document, simply parse the buffer using default encoding
+                (parse-html-content-with-encoding content-buffer :utf-8)))))))
 
 (defun find-mime-part-by-type (msg type)
   (mime4cl:do-parts (part msg)
@@ -174,11 +192,19 @@ This function differs from CLOSURE-HTML:PARSE in that it takes the
       ;; No HTML nor text parts, time to bail
       (error "Unable to find source content"))))
 
+(defun charset-from-mime (part)
+  "Given PART, return the charset that is specified in its charset section.
+Return NIL if there is no charset, or the charset isn't parseable."
+  (let ((charset (assoc "charset" (mime4cl:mime-type-parameters part) :test #'equal)))
+    (when (stringp (cdr charset))
+      (cdr charset))))
+
 (defun parse-content-as-html (part)
-  (string-case:string-case ((mime4cl:mime-type-string part))
-    ("text/html" (parse-html-handle-encoding (mime4cl:mime-body-stream part)))
-    ("text/plain" (parse-html-handle-encoding (string-as-utf-8-stream (format-plain-text-as-html part))))
-    (t "Error: got an unrecognised part type, code possibly out of sync with find-content-part")))
+  (let ((encoding (charset-from-mime part)))
+    (string-case:string-case ((mime4cl:mime-type-string part))
+      ("text/html" (parse-html-handle-encoding (mime4cl:mime-body-stream part) encoding))
+      ("text/plain" (parse-html-handle-encoding (string-as-utf-8-stream (format-plain-text-as-html part)) encoding))
+      (t "Error: got an unrecognised part type, code possibly out of sync with find-content-part"))))
 
 (defvar *quoted-headers* '(("date" "Date:")
                            ("from" "From:")

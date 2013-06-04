@@ -15,7 +15,8 @@
                :cl-fad
                :temporary-file
                :trivial-shell
-               :uiop)
+               :uiop
+               :iconv)
   :serial t
   :components ((:file "package")
                (:file "format")))
