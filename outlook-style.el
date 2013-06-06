@@ -53,6 +53,11 @@
   :type 'hook
   :group 'outlook-style)
 
+(defvar outlook-style-post-active nil
+  "This variable is set to true when the outlook-style psting should
+be activated. This is used by the advice on the function `gnus-post-news'
+so that messages sent using other methods are not affected.")
+
 (defvar outlook-style-conf-start "============ Outlook style settings ============")
 (defvar outlook-style-conf-end "============ End of settings ============")
 (defvar outlook-style-option-prefix "##")
@@ -329,7 +334,8 @@ the value of (point-max) if the marker can't be found."
             (delete-region start-of-settings end-of-settings)))))))
 
 (defun outlook-style--gnus-prepare ()
-  (unless (save-excursion (message-goto-body) (search-forward "<#mml" nil t))
+  (when (and outlook-style-post-active
+             (not (save-excursion (message-goto-body) (search-forward "<#mml" nil t))))
     (let ((replyp (save-excursion
                     (message-goto-body)
                     (cond ((= (point) (point-max))
@@ -369,7 +375,8 @@ the value of (point-max) if the marker can't be found."
 (add-hook 'message-send-hook 'outlook-style--call-muse-for-message)
 (add-hook 'message-sent-hook 'outlook-style--cleanup-temporary-attachments)
 
-(defvar outlook-style-gnus-article-current-copy nil)
+(defvar outlook-style-gnus-article-current-copy nil
+  "Dynamic variable that contains a reference to the original email.")
 
 (defadvice gnus-post-news (around outlook-style-post
                                   (post &optional
@@ -399,6 +406,17 @@ the value of (point-max) if the marker can't be found."
       ad-do-it)))
 
 (ad-activate 'gnus-post-news)
+
+(defmacro outlook-style--advice-followup-function (function)
+  (let ((n (intern (concat "outlook-style-" (symbol-name function) "-around"))))
+    `(progn
+       (defadvice ,function (around ,n)
+         (let ((outlook-style-post-active t))
+           ad-do-it))
+       (ad-activate ',function))))
+
+(outlook-style--advice-followup-function gnus-summary-followup-with-original)
+(outlook-style--advice-followup-function gnus-article-followup-with-original)
 
 ;;;
 ;;;  Setup for mu4e
