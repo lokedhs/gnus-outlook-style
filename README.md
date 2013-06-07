@@ -4,8 +4,8 @@ Outlook-style quoting for Gnus and mu4e
 Author contact information
 --------------------------
 
-  Elias Martenson
-  Email: lokedhs@gmail.com
+  - Elias Martenson
+  - Email: lokedhs@gmail.com
 
 Summary
 -------
@@ -49,7 +49,7 @@ To build, perform the following steps:
   1. Make sure SBCL is installed
   2. Make sure Quicklisp is installed (http://www.quicklisp.org/)
   3. Run the script `make_binary.sh`. This will download all the
-    required libraries.
+     required libraries.
   4. Apply the patch `closure-html.diff` to the CLOSURE-HTML
      distribution. Quicklisp generally installs this in
      `$HOME/quicklisp/dists/quicklisp/software/closure-html-*`
