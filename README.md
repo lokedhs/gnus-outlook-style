@@ -46,17 +46,17 @@ the application.
 
 To build, perform the following steps:
 
-  - Make sure SBCL is installed
-  - Make sure Quicklisp is installed (http://www.quicklisp.org/)
-  - Run the script `make_binary.sh`. This will download all the
+  1. Make sure SBCL is installed
+  2. Make sure Quicklisp is installed (http://www.quicklisp.org/)
+  3. Run the script `make_binary.sh`. This will download all the
     required libraries.
-  - Apply the patch `closure-html.diff` to the CLOSURE-HTML
-    distribution. Quicklisp generally installs this in
-    `$HOME/quicklisp/dists/quicklisp/software/closure-html-*`
-  - Run the script `make_binary.sh` again to make sure the generated
-    binary uses the patched library.
-  - You can now copy the generated binary `format_quoted_email` to any
-  - location (for example, to your `$HOME/.emacs.d` directory.
+  4. Apply the patch `closure-html.diff` to the CLOSURE-HTML
+     distribution. Quicklisp generally installs this in
+     `$HOME/quicklisp/dists/quicklisp/software/closure-html-*`
+  5. Run the script `make_binary.sh` again to make sure the generated
+     binary uses the patched library.
+  6. You can now copy the generated binary `format_quoted_email` to any
+  7. location (for example, to your `$HOME/.emacs.d` directory.
 
 Installing the elisp code
 -------------------------
