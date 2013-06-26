@@ -56,7 +56,7 @@ To build, perform the following steps:
   5. Run the script `make_binary.sh` again to make sure the generated
      binary uses the patched library.
   6. You can now copy the generated binary `format_quoted_email` to any
-  7. location (for example, to your `$HOME/.emacs.d` directory.
+     location (for example, to your `$HOME/.emacs.d` directory.
 
 Installing the elisp code
 -------------------------
