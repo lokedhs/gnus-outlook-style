@@ -14,14 +14,6 @@
   (let* ((doc (closure-html:parse file (cxml-dom:make-dom-builder))))
     doc))
 
-(defun external-format-from-name (name)
-  (handler-case
-      (let ((name-as-symbol (intern (string-upcase name) "KEYWORD")))
-        (babel:make-external-format (if (eq name-as-symbol :gb2312)
-                                        :gbk
-                                        name-as-symbol)))
-    (simple-error () nil)))
-
 (defun parse-styles-file (file)
   (labels ((remove-escapes (s)
              (with-output-to-string (out)
@@ -60,13 +52,14 @@
     (cdr v)))
 
 (defun parse-html-content-with-encoding (content format)
-  (flet ((parse (format)
-           (let ((content-as-string (babel:octets-to-string content :encoding format)))
-             (parse-html-content content-as-string))))
-    (handler-case
-        (parse format)
-      (babel-encodings:character-decoding-error ()
-        (parse :iso-8859-1)))))
+  (labels ((decode-enc ()
+             (handler-bind ((iconv:iconv-invalid-multibyte
+                             #'(lambda (condition)
+                                 (declare (ignore condition))
+                                 (invoke-restart 'iconv::iconv-cont-with-args (char-code #\?)))))
+               (iconv:iconv-to-string format content))))
+    (let ((content-as-string (decode-enc)))
+      (parse-html-content content-as-string))))
 
 (defun read-stream-to-byte-array (stream)
   "Read a sequence of \(UNSIGNED-BYTE 8) into an array with this element type."
@@ -126,21 +119,15 @@ encoding to try to use first, before looking at any other encodings."
   (let ((content-buffer (read-stream-to-byte-array stream)))
     (if preferred-encoding
         ;; If we have a preferred encoding, just use it
-        (parse-html-content (iconv:iconv-to-string preferred-encoding content-buffer))
+        (parse-html-content-with-encoding content-buffer preferred-encoding)
         ;; Otherwise, look at the meta tags in the html
         (let ((string (plain-parse-bytes-to-string content-buffer)))
           ;; Now we have a string consisting of just the BASIC LATIN characters from the input
           (let ((encoding (find-encoding-from-content-type string)))
-            (if encoding
-                ;; We found an encoding, now check if it's valid
-                (let ((fmt (external-format-from-name encoding)))
-                  (if fmt
-                      ;; We're good, we found a format
-                      (parse-html-content-with-encoding content-buffer fmt)
-                      ;; No format. We could parse the ASCII here, but right now it's best to simply bail
-                      (error "Unknown content type: ~s" encoding)))
-                ;; No encoding found in the document, simply parse the buffer using default encoding
-                (parse-html-content-with-encoding content-buffer :utf-8)))))))
+            (parse-html-content-with-encoding content-buffer
+                                              (if encoding
+                                                  (intern (string-upcase encoding) "KEYWORD")
+                                                  :utf-8)))))))
 
 (defun find-mime-part-by-type (msg type)
   (mime4cl:do-parts (part msg)
@@ -165,7 +152,7 @@ encoding to try to use first, before looking at any other encodings."
       (format out "</pre></body></html>"))))
 
 (defun string-as-utf-8-stream (string)
-  (flexi-streams:make-in-memory-input-stream (babel:string-to-octets string :encoding :utf-8)))
+  (flexi-streams:make-in-memory-input-stream (iconv:iconv-from-string :utf-8 string)))
 
 (defun find-content-part (msg)
   "Given a MIME message, return the part that contains the actual email content."
@@ -286,7 +273,7 @@ extract the corresponding images into individual files."
                                     (char-code #\a))) s))))
 
 (defun insert-node-first (node child)
-  "Inserts CHILD as the first chile element of NODE."
+  "Inserts CHILD as the first child element of NODE."
   (if (dom:has-child-nodes node)
       (dom:insert-before node child (dom:first-child node))
       (dom:append-child node child)))
