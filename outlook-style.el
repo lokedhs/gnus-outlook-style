@@ -418,6 +418,7 @@ the value of (point-max) if the marker can't be found."
 (outlook-style--advice-followup-function gnus-summary-followup-with-original)
 (outlook-style--advice-followup-function gnus-article-followup-with-original)
 (outlook-style--advice-followup-function gnus-group-mail)
+(outlook-style--advice-followup-function gnus-summary-mail-other-window)
 
 ;;;
 ;;;  Setup for mu4e
