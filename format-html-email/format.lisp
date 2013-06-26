@@ -118,19 +118,6 @@ can't be parsed."
         (when match
           (find-charset-from-content-type (aref strings 2))))))
 
-(defun iconv-to-string (from-code from-vector)
-  (defparameter *src* from-vector)
-  (let ((result (iconv:iconv from-code :utf-32be from-vector)))
-    (unless (zerop (mod (length result) 4))
-      (error "UTF-32BE output length is not divisible by 4: ~a" (length result)))
-    (with-output-to-string (out)
-      (dotimes (i (/ (length result) 4))
-        (write-char (code-char (logior (ash (aref result (* i 4)) 24)
-                                       (ash (aref result (+ (* i 4) 1)) 16)
-                                       (ash (aref result (+ (* i 4) 2)) 8)
-                                       (aref result (+ (* i 4) 3))))
-                    out)))))
-
 (defun parse-html-handle-encoding (stream preferred-encoding)
   "Read STREAM and parse it as HTML, returning the corresponding DOM tree.
 This function differs from CLOSURE-HTML:PARSE in that it takes the
@@ -139,7 +126,7 @@ encoding to try to use first, before looking at any other encodings."
   (let ((content-buffer (read-stream-to-byte-array stream)))
     (if preferred-encoding
         ;; If we have a preferred encoding, just use it
-        (parse-html-content (iconv-to-string preferred-encoding content-buffer))
+        (parse-html-content (iconv:iconv-to-string preferred-encoding content-buffer))
         ;; Otherwise, look at the meta tags in the html
         (let ((string (plain-parse-bytes-to-string content-buffer)))
           ;; Now we have a string consisting of just the BASIC LATIN characters from the input
