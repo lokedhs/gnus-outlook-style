@@ -379,6 +379,10 @@ quoted emails to look bad."
         ;; Output the rest of the document to the output stream
         (dom:map-document (cxml:make-namespace-normalizer (closure-html:make-character-stream-sink stream)) content-doc)))))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (unless (sgml::name-rune-p #\:)
+    (error "The patch to closure-html has not been applied. Please see the README for details.")))
+
 (defun main ()
   (handler-case
       (progn
