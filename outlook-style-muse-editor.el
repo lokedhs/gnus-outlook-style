@@ -1,3 +1,16 @@
+;;;###autoload
+(defcustom outlook-style-muse-editor-hook nil
+  "Hook that is called after the muse editr has been initialised."
+  :type 'hook
+  :group 'outlook-style)
+
+;;;###autoload
+(defcustom outlook-style-muse-editor-before-save-hook nil
+  "Hook that is called just before the muse editor pushes the
+updates to the original buffer."
+  :type 'hook
+  :group 'outlook-style)
+
 (defun outlook-style--find-muse-message-boundaries ()
   (save-excursion
     (message-goto-body)
@@ -16,6 +29,7 @@ email buffer."
     (error "Not in local muse edit mode"))
   (let ((content (buffer-string))
         (buffer (current-buffer)))
+    (run-hooks 'outlook-style-muse-editor-before-save-hook)
     (switch-to-buffer outlook-style--local-muse-mode-mail-buffer)
     (let ((boundaries (outlook-style--find-muse-message-boundaries)))
       (unless boundaries
@@ -45,8 +59,9 @@ email buffer."
           (goto-char (point-min))
           (muse-mode)
           (local-set-key (kbd "C-c C-c") 'outlook-style-save-muse-mode-buffer)
-          (set (make-local-variable 'outlook-style--local-muse-mode-mail-buffer) mail-buffer))
-      (message "Muse format marker not found"))))
+          (set (make-local-variable 'outlook-style--local-muse-mode-mail-buffer) mail-buffer)
+          (run-hooks 'outlook-style-muse-editor-hook))
+      (error "Muse format marker not found"))))
 
 (defun outlook-style--setup-editor-bindings ()
   (local-set-key (kbd "C-c C-e") 'outlook-style-edit-mail-in-muse-mode))
