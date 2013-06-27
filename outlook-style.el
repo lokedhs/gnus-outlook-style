@@ -53,6 +53,12 @@
   :type 'hook
   :group 'outlook-style)
 
+;;;###autoload
+(defcustom outlook-style-temporary-dir "/tmp"
+  "The directory where temporary files are saved to."
+  :type 'directory
+  :group 'outlook-style)
+
 (defvar outlook-style-post-active nil
   "This variable is set to true when the outlook-style psting should
 be activated. This is used by the advice on the function `gnus-post-news'
@@ -207,9 +213,10 @@ CADR is the source-specific data."
 
     (with-temp-buffer
       (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
-        (unless (zerop (shell-command (format "%s '%s' '%s' /tmp '%s'"
+        (unless (zerop (shell-command (format "%s '%s' '%s' '%s' '%s'"
                                               (expand-file-name outlook-style-format-helper-location)
-                                              new-message old-message styles-filename)
+                                              new-message old-message styles-filename
+                                              (expand-file-name outlook-style-temporary-dir))
                                       (current-buffer) error-buffer))
           (switch-to-buffer error-buffer)
           (error "Formatting of email failed")))
