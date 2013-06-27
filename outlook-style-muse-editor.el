@@ -48,8 +48,9 @@ email buffer."
           (set (make-local-variable 'outlook-style--local-muse-mode-mail-buffer) mail-buffer))
       (message "Muse format marker not found"))))
 
-(add-hook 'outlook-style-init-hook
-          (lambda ()
-            (local-set-key (kbd "C-c C-e") 'outlook-style-edit-mail-in-muse-mode)))
+(defun outlook-style--setup-editor-bindings ()
+  (local-set-key (kbd "C-c C-e") 'outlook-style-edit-mail-in-muse-mode))
+
+(add-hook 'outlook-style-init-hook 'outlook-style--setup-editor-bindings)
 
 (provide 'outlook-style-muse-editor)

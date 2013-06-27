@@ -215,8 +215,9 @@ CADR is the source-specific data."
       (let ((error-buffer (get-buffer-create "*format-quoted-email errors*")))
         (unless (zerop (shell-command (format "%s '%s' '%s' '%s' '%s'"
                                               (expand-file-name outlook-style-format-helper-location)
-                                              new-message old-message styles-filename
-                                              (expand-file-name outlook-style-temporary-dir))
+                                              new-message old-message
+                                              (expand-file-name outlook-style-temporary-dir)
+                                              styles-filename)
                                       (current-buffer) error-buffer))
           (switch-to-buffer error-buffer)
           (error "Formatting of email failed")))
