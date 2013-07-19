@@ -49,7 +49,8 @@ To build, perform the following steps:
   1. Make sure SBCL is installed
   2. Make sure Quicklisp is installed (http://www.quicklisp.org/)
   3. Run the script `make_binary.sh`. This will download all the
-     required libraries.
+     required libraries. After this, the compilation will fail since
+     the patch has not yet been applied.
   4. Apply the patch `closure-html.diff` to the CLOSURE-HTML
      distribution. Quicklisp generally installs this in
      `$HOME/quicklisp/dists/quicklisp/software/closure-html-*`
