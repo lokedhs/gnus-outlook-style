@@ -410,7 +410,7 @@ the value of (point-max) if the marker can't be found."
                  ((numberp message)
                   (cons group message))
                  (t
-                  "Error outlook-style was not prepared to handle a yank of value: %s" yank))))
+                  (error "outlook-style was not prepared to handle a yank of value: %s" yank)))))
       ad-do-it)))
 
 (ad-activate 'gnus-post-news)
