@@ -1,5 +1,23 @@
---- src/parse/sgml-parse.lisp.old	2012-08-15 11:45:48.343889340 +0800
-+++ src/parse/sgml-parse.lisp	2012-08-15 11:46:05.811680608 +0800
+diff --git a/src/parse/html-parser.lisp b/src/parse/html-parser.lisp
+index 1fdd457..4e45b81 100644
+--- a/src/parse/html-parser.lisp
++++ b/src/parse/html-parser.lisp
+@@ -106,7 +106,10 @@
+      for (name value) on plist by #'cddr
+      unless
+        ;; better don't emit as HAX what would be bogus as SAX anyway
+-       (string-equal name "xmlns")
++       (let ((s (string name))
++             (prefix "xmlns:"))
++         (or (string-equal s "xmlns")
++             (string-equal s prefix :end1 (min (length s) (length prefix)))))
+      collect
+      (let* ((n #+rune-is-character (coerce (symbol-name name) 'rod)
+ 	       #-rune-is-character (symbol-name name))
+diff --git a/src/parse/sgml-parse.lisp b/src/parse/sgml-parse.lisp
+index faa9029..a277ece 100644
+--- a/src/parse/sgml-parse.lisp
++++ b/src/parse/sgml-parse.lisp
 @@ -182,7 +182,8 @@
    (or (name-start-rune-p char)
        (digit-rune-p char) 
