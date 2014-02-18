@@ -68,10 +68,6 @@ so that messages sent using other methods are not affected.")
 (defvar outlook-style-conf-end "============ End of settings ============")
 (defvar outlook-style-option-prefix "##")
 
-(defun llog (fmt &rest args)
-  (with-current-buffer (get-buffer-create "llog")
-    (insert (apply #'format fmt args) "\n")))
-
 (defmacro with-temp-files (files &rest body)
   (declare (indent 1))
   (if files
