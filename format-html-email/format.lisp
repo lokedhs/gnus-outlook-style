@@ -243,7 +243,7 @@ file in TMP-DIR and return the pathname of the file."
       (pathname s))))
 
 (defun extract-inline-images (doc part tmp-dir)
-  "Find all 'img' tags in the HTML document which has a 'src' attribute
+  "Find all 'img' tags in the HTML document which has an 'src' attribute
 that points to an internal image \(i.e. their URL begins with 'cid:'), and
 extract the corresponding images into individual files."
   (let ((attachments (make-mime-attachment-map part))
