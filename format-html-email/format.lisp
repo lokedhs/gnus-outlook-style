@@ -51,13 +51,21 @@
       (error "Can't find style \"~a\"" name))
     (cdr v)))
 
+(defvar *encoding-replacement* '(("ks_c_5601-1987" . "EUC-KR")))
+
+(defun fix-encoding-name (format)
+  (let ((v (find format *encoding-replacement* :key #'car :test #'equal)))
+    (if v
+        (cdr v)
+        format)))
+
 (defun parse-html-content-with-encoding (content format)
   (labels ((decode-enc ()
              (handler-bind ((iconv:iconv-invalid-multibyte
                              #'(lambda (condition)
                                  (declare (ignore condition))
                                  (invoke-restart 'iconv::iconv-cont-with-args (char-code #\?)))))
-               (iconv:iconv-to-string format content))))
+               (iconv:iconv-to-string (fix-encoding-name format) content))))
     (let ((content-as-string (decode-enc)))
       (parse-html-content content-as-string))))
 
