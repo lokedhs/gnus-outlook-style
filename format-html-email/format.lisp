@@ -11,7 +11,7 @@
      ,@body))
 
 (defun parse-html-content (file)
-  (let* ((doc (closure-html:parse file (cxml-dom:make-dom-builder))))
+  (let ((doc (closure-html:parse file (cxml-dom:make-dom-builder))))
     doc))
 
 (defun parse-styles-file (file)
