@@ -92,11 +92,11 @@ Kill and reload emacs:
     emacsclient -e '(kill-emacs)'
     emacs --daemon
 
-*Done, yay!*
+**Done, yay!**
 
 Now you are ready to use `gnus-outlook-style`.
 
-*TODO:* add instructions on how to actually edit emails in `gnus` and `mu4e`.
+**TODO:** add instructions on how to actually edit emails in `gnus` and `mu4e`.
 
 A note on the helper application
 --------------------------------
