@@ -189,14 +189,14 @@ CADR is the source-specific data."
       (write-file file))))
 
 (defun outlook-style--get-next-pair ()
-  (flet ((line-content ()
-                       (when (looking-at "==END==")
-                         (error "Illegal attachment format"))
-                       (let ((s (outlook-style--remove-trailing-newlines (thing-at-point 'line))))
-                         (forward-line)
-                         s)))
+  (cl-flet ((line-content ()
+              (when (looking-at "==END==")
+                (error "Illegal attachment format"))
+              (let ((s (outlook-style--remove-trailing-newlines (thing-at-point 'line))))
+                (forward-line)
+                s)))
 
-    (let* ((id (line-content))
+    (let* ((id (outlook-style--remove-inline-mail-content))
            (type (line-content))
            (file (line-content)))
       (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\" disposition=inline>\n<#/part>"
