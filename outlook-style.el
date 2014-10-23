@@ -179,7 +179,7 @@ CADR is the source-specific data."
                       (t   (char-to-string ch)))))))
 
 (defun outlook-style--write-styles-settings (file)
-  (flet ((print-param (name value) (insert (concat name "=" (outlook-style--escape-lisp value) "\n"))))
+  (cl-flet ((print-param (name value) (insert (concat name "=" (outlook-style--escape-lisp value) "\n"))))
     (with-temp-buffer
       (print-param "body" outlook-style-body-css)
       (print-param "src" outlook-style-src-css)
