@@ -196,7 +196,7 @@ CADR is the source-specific data."
                 (forward-line)
                 s)))
 
-    (let* ((id (outlook-style--remove-inline-mail-content))
+    (let* ((id (line-content))
            (type (line-content))
            (file (line-content)))
       (list (format "<#part type=%s name=\"%s\" id=\"<%s>\" filename=\"%s\" description=\"%s\" disposition=inline>\n<#/part>"
