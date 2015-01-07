@@ -2,7 +2,8 @@
   :name "format-html-email"
   :author "Elias Martenson <lokedhs@gmail.com>"
   :description "Updates the quote part of an HTML email"
-  :depends-on (:closure-html
+  :depends-on (:split-sequence
+               :closure-html
                :cxml
                :xpath
                :command-line-arguments
