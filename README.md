@@ -66,7 +66,7 @@ You should be seeing downloading packages, compilation messages, and a fail mess
 Go to the `closure-html` folder:
 
     cd ~/quicklisp/dists/quicklisp/software/closure-html-...
-    patch -p1 /path/to/gnus-outlook-style/closure-html.diff
+    patch -p1 < /path/to/gnus-outlook-style/closure-html.diff
 
 Now go back and run `make_binary.sh` again:
 
