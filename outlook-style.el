@@ -331,7 +331,7 @@ the value of (point-max) if the marker can't be found."
                                          ;; The old email chain should not be included
                                          (outlook-style--simple-muse-message new-content))))
                 (outlook-style--prepare-buffer-for-submit new-content old-content processed-results))
-                
+
             ;; The user does not want to use muse, so simply
             ;; delete the configuration section from the buffer
             ;; and fall back to the default mailing style
