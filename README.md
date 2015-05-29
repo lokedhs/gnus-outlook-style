@@ -130,6 +130,24 @@ to do that using `gnus-posting-styles` and
          (eval (one-key-menu "reply" my--reply-style-one-key-menu-alist t)))))
 ```
 
+Signature
+---------
+
+Due to the way `gnus-outlook-style` parses the message buffer, you
+currently can't use `gnus-posting-styles` with a `signature` element to
+specify your signature.  However, you can always register a function with
+the `outlook-style-init-hook` to insert a signature "manually":
+
+```elisp
+(defun my--outlook-style-init ()
+  (save-excursion
+    (message-goto-body)
+    (insert "\n\n-John Doe\n")))
+
+(add-hook 'outlook-style-init-hook my--outlook-style-init)
+```
+
+
 **TODO:** add instructions on how to actually edit emails in `gnus` and `mu4e`.
 
 A note on the helper application
