@@ -96,6 +96,58 @@ Kill and reload emacs:
 
 Now you are ready to use `gnus-outlook-style`.
 
+Additional Configuration
+========================
+
+Dynamic Selection of Posting Style
+----------------------------------
+
+If you need to switch between posting with `gnus-outlook-style` and some
+other citation style (like one of the citation styles built-in to `gnus`),
+you just need to make sure the variable `outlook-style-inhibit` is bound
+and not-`nil` when the message buffer is created.  Here's an example of how
+to do that using `gnus-posting-styles` and
+[OneKey](http://emacswiki.org/emacs/OneKey):
+
+```elisp
+(defun my--set-style-traditional ()
+  (interactive)
+  (set (make-local-variable 'message-cite-reply-position) 'traditional)
+  (setq-local 'outlook-style-inhibit t))
+
+(defun my--set-style-traditional ()
+  (interactive)
+  (set (make-local-variable 'message-cite-reply-position) 'above)
+  (setq-local 'outlook-style-inhibit t))
+
+(setq my--reply-style-one-key-menu-alist
+      '((("o" . "Outlook") . ignore)
+        (("t" . "Traditional") . my--set-style-traditional)
+        (("a" . "Above") . my--set-style-above)))
+
+(setq gnus-posting-styles
+      '((".*"
+         (eval (one-key-menu "reply" my--reply-style-one-key-menu-alist t)))))
+```
+
+Signature
+---------
+
+Due to the way `gnus-outlook-style` parses the message buffer, you
+currently can't use `gnus-posting-styles` with a `signature` element to
+specify your signature.  However, you can always register a function with
+the `outlook-style-init-hook` to insert a signature "manually":
+
+```elisp
+(defun my--outlook-style-init ()
+  (save-excursion
+    (message-goto-body)
+    (insert "\n\n-John Doe\n")))
+
+(add-hook 'outlook-style-init-hook my--outlook-style-init)
+```
+
+
 **TODO:** add instructions on how to actually edit emails in `gnus` and `mu4e`.
 
 A note on the helper application
