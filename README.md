@@ -36,6 +36,10 @@ In emacs you will need `muse`. Open `M-x package-list-packages` and install it.
 Install required packages:
 
     sudo apt-get install sbcl libfixposix-dev
+ 
+Install required packages (OS X):
+
+    brew install sbcl libfixposix
 
 Install Quicklisp:
 
