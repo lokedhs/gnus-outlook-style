@@ -278,7 +278,8 @@ extract the corresponding images into individual files."
        repeat 20
        do (write-char (code-char (+ (random (1+ (- (char-code #\z)
                                                    (char-code #\a))))
-                                    (char-code #\a))) s))))
+                                    (char-code #\a)))
+                      s))))
 
 (defun insert-node-first (node child)
   "Inserts CHILD as the first child element of NODE."
