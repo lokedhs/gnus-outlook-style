@@ -64,6 +64,12 @@
 be activated. This is used by the advice on the function `gnus-post-news'
 so that messages sent using other methods are not affected.")
 
+(defvar outlook-style-inhibit nil
+  "This variable should be set to true by the user if
+outlook-style should not be used.  This is useful for
+dynamically (de-)activating outlook-style (so that other citation
+styles can be used, for example).")
+
 (defvar outlook-style-conf-start "============ Outlook style settings ============")
 (defvar outlook-style-conf-end "============ End of settings ============")
 (defvar outlook-style-option-prefix "##")
@@ -339,7 +345,8 @@ the value of (point-max) if the marker can't be found."
 
 (defun outlook-style--gnus-prepare ()
   (when (and outlook-style-post-active
-             (not (save-excursion (message-goto-body) (search-forward "<#mml" nil t))))
+             (not (save-excursion (message-goto-body) (search-forward "<#mml" nil t)))
+             (not outlook-style-inhibit))
     (let ((replyp (save-excursion
                     (message-goto-body)
                     (cond ((= (point) (point-max))
