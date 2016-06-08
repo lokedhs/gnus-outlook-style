@@ -119,7 +119,7 @@ to do that using `gnus-posting-styles` and
   (set (make-local-variable 'message-cite-reply-position) 'traditional)
   (setq-local 'outlook-style-inhibit t))
 
-(defun my--set-style-traditional ()
+(defun my--set-style-above ()
   (interactive)
   (set (make-local-variable 'message-cite-reply-position) 'above)
   (setq-local 'outlook-style-inhibit t))
