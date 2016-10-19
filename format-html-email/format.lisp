@@ -18,32 +18,32 @@
   (labels ((remove-escapes (s)
              (with-output-to-string (out)
                (loop
-                  with next-escape = nil
-                  for ch across s
-                  do (cond ((not (null next-escape))
-                            (write-char (ecase ch
-                                          (#\n #\Newline)
-                                          (#\r #\Return)
-                                          (#\\ #\\)
-                                          (#\" #\"))
-                                        out)
-                            (setq next-escape nil))
-                           ((char= ch #\\)
-                            (setq next-escape t))
-                           (t
-                            (write-char ch out)))
-                  finally (when next-escape
-                            (error "Escaped string ends with backslash"))))))
+                 with next-escape = nil
+                 for ch across s
+                 do (cond ((not (null next-escape))
+                           (write-char (ecase ch
+                                         (#\n #\Newline)
+                                         (#\r #\Return)
+                                         (#\\ #\\)
+                                         (#\" #\"))
+                                       out)
+                           (setq next-escape nil))
+                          ((char= ch #\\)
+                           (setq next-escape t))
+                          (t
+                           (write-char ch out)))
+                 finally (when next-escape
+                           (error "Escaped string ends with backslash"))))))
 
     (with-open-file (in file)
       (loop
-         for s = (read-line in nil nil)
-         while s
-         collect (multiple-value-bind (match strings)
-                     (cl-ppcre:scan-to-strings "^([a-zA-Z-]+)=(.*)$" s)
-                   (unless match
-                     (error "Cannot parse styles line: ~s" s))
-                   (cons (aref strings 0) (remove-escapes (aref strings 1))))))))
+        for s = (read-line in nil nil)
+        while s
+        collect (multiple-value-bind (match strings)
+                    (cl-ppcre:scan-to-strings "^([a-zA-Z-]+)=(.*)$" s)
+                  (unless match
+                    (error "Cannot parse styles line: ~s" s))
+                  (cons (aref strings 0) (remove-escapes (aref strings 1))))))))
 
 (defun find-css (styles name)
   (let ((v (assoc name styles :test #'equal)))
@@ -62,9 +62,9 @@
 (defun parse-html-content-with-encoding (content format)
   (labels ((decode-enc ()
              (handler-bind ((iconv:iconv-invalid-multibyte
-                             #'(lambda (condition)
-                                 (declare (ignore condition))
-                                 (invoke-restart 'iconv::iconv-cont-with-args (char-code #\?)))))
+                              (lambda (condition)
+                                (declare (ignore condition))
+                                (invoke-restart 'iconv::iconv-cont-with-args (char-code #\?)))))
                (iconv:iconv-to-string (fix-encoding-name format) content))))
     (let ((content-as-string (decode-enc)))
       (parse-html-content content-as-string))))
@@ -82,17 +82,17 @@
          (buf (make-array (* 1024 16) :element-type 'unsigned-byte))
          (result (make-array (* 1024 16) :element-type type :adjustable t :fill-pointer 0)))
     (handler-bind (#+sbcl(sb-int:stream-decoding-error
-                          #'(lambda (condition)
-                              (declare (ignore condition))
-                              (invoke-restart 'sb-int:attempt-resync))))
+                           (lambda (condition)
+                             (declare (ignore condition))
+                             (invoke-restart 'sb-int:attempt-resync))))
       (loop
-         for length = (read-sequence buf stream)
-         do (loop
-               repeat length
-               for element across buf
-               when (typep element type)
+        for length = (read-sequence buf stream)
+        do (loop
+             repeat length
+             for element across buf
+             when (typep element type)
                do (vector-push-extend element result))
-         while (= length (array-dimension buf 0))))
+        while (= length (array-dimension buf 0))))
     result))
 
 (defun plain-parse-bytes-to-string (bytes)
@@ -102,9 +102,9 @@ converts an input string into a plain ASCII string, dropping everything that
 can't be parsed."
   (let ((result (make-array (array-dimension bytes 0) :element-type 'character :adjustable t :fill-pointer 0)))
     (loop
-       for byte across bytes
-       when (<= 0 byte 127)
-       do (vector-push-extend (code-char byte) result))
+      for byte across bytes
+      when (<= 0 byte 127)
+        do (vector-push-extend (code-char byte) result))
     result))
 
 (defun find-charset-from-content-type (content)
@@ -150,13 +150,13 @@ encoding to try to use first, before looking at any other encodings."
     (with-output-to-string (out)
       (format out "<html><body><pre>")
       (loop
-         for ch = (read-char in nil nil)
-         while ch
-         do (case ch
-              (#\< (write-string "&lt;" out))
-              (#\> (write-string "&gt;" out))
-              (#\& (write-string "&amp;" out))
-              (t   (write-char ch out))))
+        for ch = (read-char in nil nil)
+        while ch
+        do (case ch
+             (#\< (write-string "&lt;" out))
+             (#\> (write-string "&gt;" out))
+             (#\& (write-string "&amp;" out))
+             (t   (write-char ch out))))
       (format out "</pre></body></html>"))))
 
 (defun string-as-utf-8-stream (string)
@@ -225,11 +225,11 @@ headers from the message."
 being the mime part. This prevents unneccesary iterating over the message
 when there are lots of attachments."
   (let ((h (make-hash-table :test 'equal)))
-    (mime4cl:map-parts #'(lambda (v)
-                           (multiple-value-bind (match strings)
-                               (cl-ppcre:scan-to-strings "^ *<(.*)> *$" (mime4cl:mime-id v))
-                             (when match
-                               (setf (gethash (aref strings 0) h) v))))
+    (mime4cl:map-parts (lambda (v)
+                         (multiple-value-bind (match strings)
+                             (cl-ppcre:scan-to-strings "^ *<(.*)> *$" (mime4cl:mime-id v))
+                           (when match
+                             (setf (gethash (aref strings 0) h) v))))
                        part)
     h))
 
@@ -256,17 +256,17 @@ that points to an internal image \(i.e. their URL begins with 'cid:'), and
 extract the corresponding images into individual files."
   (let ((attachments (make-mime-attachment-map part))
         (images-map nil))
-    (xpath:map-node-set #'(lambda (node)
-                            (multiple-value-bind (match strings)
-                                (cl-ppcre:scan-to-strings "^cid:(.*)$" (dom:get-attribute node "src"))
-                              (when match
-                                (let* ((id (aref strings 0))
-                                       (image (gethash id attachments)))
-                                  (when image
-                                    (push (list id
-                                                (mime4cl:mime-type-string image)
-                                                (copy-attachment-to-file image tmp-dir))
-                                          images-map))))))
+    (xpath:map-node-set (lambda (node)
+                          (multiple-value-bind (match strings)
+                              (cl-ppcre:scan-to-strings "^cid:(.*)$" (dom:get-attribute node "src"))
+                            (when match
+                              (let* ((id (aref strings 0))
+                                     (image (gethash id attachments)))
+                                (when image
+                                  (push (list id
+                                              (mime4cl:mime-type-string image)
+                                              (copy-attachment-to-file image tmp-dir))
+                                        images-map))))))
                         (xpath:evaluate "//h:img" doc))
     images-map))
 
@@ -275,11 +275,11 @@ extract the corresponding images into individual files."
   (with-output-to-string (s)
     (format s "email-")
     (loop
-       repeat 20
-       do (write-char (code-char (+ (random (1+ (- (char-code #\z)
-                                                   (char-code #\a))))
-                                    (char-code #\a)))
-                      s))))
+      repeat 20
+      do (write-char (code-char (+ (random (1+ (- (char-code #\z)
+                                                  (char-code #\a))))
+                                   (char-code #\a)))
+                     s))))
 
 (defun insert-node-first (node child)
   "Inserts CHILD as the first child element of NODE."
@@ -290,15 +290,15 @@ extract the corresponding images into individual files."
 (defun remove-initial-newline-from-pre (doc node)
   "If the text content of NODE begins with a newline, then remove it."
   (loop
-     for n across (copy-seq (dom:child-nodes node))
-     when (dom:text-node-p n)
-     do (progn
-          (let ((text (dom:node-value n)))
-            (when (and (plusp (length text)) (char= (aref text 0) #\Newline))
-              (when (> (length text) 1)
-                (dom:insert-before node (dom:create-text-node doc (subseq text 1)) n))))
-              (dom:remove-child node n)
-          (return))))
+    for n across (copy-seq (dom:child-nodes node))
+    when (dom:text-node-p n)
+      do (progn
+           (let ((text (dom:node-value n)))
+             (when (and (plusp (length text)) (char= (aref text 0) #\Newline))
+               (when (> (length text) 1)
+                 (dom:insert-before node (dom:create-text-node doc (subseq text 1)) n))))
+           (dom:remove-child node n)
+           (return))))
 
 (defun update-styles-for-tree (doc div styles)
   "Update the style attribute for relevant nodes. Note that the fact that the nodes
@@ -316,28 +316,28 @@ quoted emails to look bad."
     (dom:append-child head style-element))
 
   (let ((src-style (find-css styles "src")))
-    (xpath:map-node-set #'(lambda (node)
-                            (dom:remove-attribute node "class")
-                            (dom:set-attribute-ns node *html-namespace* "style" src-style)
-                            (let ((parent (dom:parent-node node))
-                                  (div (dom:create-element-ns doc *html-namespace* "div")))
-                              (dom:insert-before parent div node)
-                              (dom:remove-child parent node)
-                              (dom:set-attribute-ns div *html-namespace* "style" "margin-bottom: 1em;")
-                              (dom:append-child div node))
-                            ;; Because Outlook does not comply with the HTML spec (it uses the IE6 renderer?),
-                            ;; we need to remove the first newline in the <pre> section. Otherwise it
-                            ;; will render an initial newline in the block.
-                            (remove-initial-newline-from-pre doc node))
+    (xpath:map-node-set (lambda (node)
+                          (dom:remove-attribute node "class")
+                          (dom:set-attribute-ns node *html-namespace* "style" src-style)
+                          (let ((parent (dom:parent-node node))
+                                (div (dom:create-element-ns doc *html-namespace* "div")))
+                            (dom:insert-before parent div node)
+                            (dom:remove-child parent node)
+                            (dom:set-attribute-ns div *html-namespace* "style" "margin-bottom: 1em;")
+                            (dom:append-child div node))
+                          ;; Because Outlook does not comply with the HTML spec (it uses the IE6 renderer?),
+                          ;; we need to remove the first newline in the <pre> section. Otherwise it
+                          ;; will render an initial newline in the block.
+                          (remove-initial-newline-from-pre doc node))
                         (xpath:evaluate "//h:pre[@class='src']" div)))
 
   (let ((code-style (find-css styles "code")))
-    (xpath:map-node-set #'(lambda (node)
-                            (dom:set-attribute-ns node *html-namespace* "style" code-style))
+    (xpath:map-node-set (lambda (node)
+                          (dom:set-attribute-ns node *html-namespace* "style" code-style))
                         (xpath:evaluate "//h:code" div))))
 
 (defun quote-email (content old-content tmp-dir styles &optional (stream *standard-output*))
-  (with-html-namespaces 
+  (with-html-namespaces
     (let* ((msg (mime4cl:mime-message (pathname old-content)))
            (content-doc (parse-html-content content))
            (old-content-part (find-content-part msg))
@@ -346,8 +346,8 @@ quoted emails to look bad."
       (let ((div (dom:create-element-ns old-content-doc *html-namespace* "div")))
         ;; Copy the new content into a div, which will subsequently be inserted into the old document
         (loop
-           for node across (copy-seq (dom:child-nodes (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc))))
-           do (dom:append-child div (dom:import-node old-content-doc node t)))
+          for node across (copy-seq (dom:child-nodes (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc))))
+          do (dom:append-child div (dom:import-node old-content-doc node t)))
 
         ;; Process the div to insert explicit style attributes
         (update-styles-for-tree old-content-doc div styles)
@@ -375,10 +375,10 @@ quoted emails to look bad."
       ;; Move all the body content into the div
       (let ((body-node (xpath:first-node (xpath:evaluate "/h:html/h:body" content-doc))))
         (loop
-           for node across (copy-seq (dom:child-nodes body-node))
-           do (progn
-                (dom:remove-child body-node node)
-                (dom:append-child div node)))
+          for node across (copy-seq (dom:child-nodes body-node))
+          do (progn
+               (dom:remove-child body-node node)
+               (dom:append-child div node)))
         ;; Insert the div into the (now empty) body node
         (dom:append-child body-node div)
         ;; Update the styles according to preferences
