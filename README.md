@@ -36,7 +36,7 @@ In emacs you will need `muse`. Open `M-x package-list-packages` and install it.
 Install required packages:
 
     sudo apt-get install sbcl libfixposix-dev
- 
+
 Install required packages (OS X):
 
     brew install sbcl libfixposix
@@ -54,28 +54,13 @@ In the `sbcl` console:
 
 Remove `quicklisp.lisp`, not needed any more.
 
-Add to the end of `~/.sbclrc`, edit the path to your setup:
-
-    (require :asdf)
-    (pushnew "/path/to/gnus-outlook-style/format-html-email/" asdf:*central-registry* :test #'equal)
-
 Now you are ready to start compiling the `format_quoted_email` helper binary:
 
     git clone https://github.com/lokedhs/gnus-outlook-style
     cd gnus-outlook-style/format-html-email/
     ./make_binary.sh
 
-You should be seeing downloading packages, compilation messages, and a fail message for `format-html-email`. Time to apply the patch to `closure-html`.
-
-Go to the `closure-html` folder:
-
-    cd ~/quicklisp/dists/quicklisp/software/closure-html-...
-    patch -p1 < /path/to/gnus-outlook-style/closure-html.diff
-
-Now go back and run `make_binary.sh` again:
-
-    cd /path/to/gnus-outlook-style/format-html-email/
-    ./make_binary.sh
+You should be seeing downloading packages, compilation messages, and a fail message for `format-html-email`.
 
 This should produce the `format_quoted_email` binary. Copy this to somewhere that is in your `$PATH`.
 
@@ -166,4 +151,3 @@ CLOSURE-HTML. Currently, this fix has not been included in this
 library's distribution, which is why the following list of steps
 include the application of a patch to the library prior to rebuilding
 the application.
-
